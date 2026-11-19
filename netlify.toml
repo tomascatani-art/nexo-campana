@@ -1,0 +1,25 @@
+# Publicación en Netlify (Next.js con el adaptador oficial de Netlify).
+# Las variables DATABASE_URL, AUTH_SECRET y NEXT_PUBLIC_SITE_URL se cargan en
+# Netlify → Site configuration → Environment variables (nunca en este archivo).
+[build]
+  # 1) crea/actualiza las tablas en Supabase (no borra datos)  2) arma la web
+  command = "npm run db:setup && npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22"
+  NEXT_TELEMETRY_DISABLED = "1"
+  DB_MAX = "2"   # pocas conexiones mientras se arma la web (Supabase gratis tiene un límite)
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# El modelo para recortar fondos y el motor (wasm) no cambian: se guardan en caché un mes.
+[[headers]]
+  for = "/models/*"
+  [headers.values]
+    Cache-Control = "public, max-age=2592000, immutable"
+[[headers]]
+  for = "/vendor/*"
+  [headers.values]
+    Cache-Control = "public, max-age=2592000, immutable"
