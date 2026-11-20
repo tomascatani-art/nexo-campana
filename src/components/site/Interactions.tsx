@@ -32,10 +32,27 @@ export function Interactions() {
     };
     document.addEventListener('pointermove', onMove, { passive: true });
 
+    // Enlaces a una sección de esta misma página (#catalogo, /#como-comprar…): bajamos nosotros.
+    // Así funcionan siempre, aunque la dirección ya tenga ese # (antes no hacían nada).
+    const onClick = (ev: MouseEvent) => {
+      if (ev.defaultPrevented || ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+      const a = (ev.target as HTMLElement | null)?.closest?.('a[href*="#"]') as HTMLAnchorElement | null;
+      if (!a || a.target === '_blank') return;
+      const url = new URL(a.href, location.href);
+      if (url.origin !== location.origin || url.pathname !== location.pathname || !url.hash) return;
+      const el = document.getElementById(decodeURIComponent(url.hash.slice(1)));
+      if (!el) return;
+      ev.preventDefault();
+      history.replaceState(history.state, '', url.hash);
+      setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30);
+    };
+    document.addEventListener('click', onClick, true);
+
     return () => {
       io.disconnect();
       mo.disconnect();
       document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('click', onClick, true);
     };
   }, []);
   return null;
