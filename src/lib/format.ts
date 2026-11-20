@@ -77,14 +77,15 @@ function cleanUrl(v: string | null | undefined): string | null {
 
 /**
  * Dirección pública de la web. Usa la primera que sea válida:
- * 1) NEXT_PUBLIC_SITE_URL (variable del hosting)  2) la guardada en la base
- * 3) la dirección que da Vercel  4) localhost. Nunca devuelve una URL rota.
+ * 1) la de producción que da Vercel  2) NEXT_PUBLIC_SITE_URL  3) la guardada en la base
+ * 4) localhost. Nunca devuelve una URL rota.
  */
 export function siteUrl(s?: { site_url: string | null } | null) {
   return (
+    // en Vercel, la dirección real de producción (si después se agrega un dominio propio, pasa a ser ese)
+    cleanUrl(process.env.VERCEL_PROJECT_PRODUCTION_URL) ||
     cleanUrl(process.env.NEXT_PUBLIC_SITE_URL) ||
     cleanUrl(s?.site_url) ||
-    cleanUrl(process.env.VERCEL_PROJECT_PRODUCTION_URL) ||
     cleanUrl(process.env.VERCEL_URL) ||
     'http://localhost:3000'
   );

@@ -1,4 +1,5 @@
 import { sql } from '@/lib/db';
+import { siteUrl } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +19,7 @@ export async function GET() {
   }
   lines.push(`DATABASE_URL: ${info}`);
   lines.push(`AUTH_SECRET: ${process.env.AUTH_SECRET && process.env.AUTH_SECRET.length >= 32 ? 'ok' : 'FALTA o es muy corta'}`);
-  lines.push(`NEXT_PUBLIC_SITE_URL: ${process.env.NEXT_PUBLIC_SITE_URL || 'no está cargada'}`);
+  lines.push(`Dirección de la web: ${siteUrl()}`);
   lines.push(`Región del servidor: ${process.env.VERCEL_REGION || '-'}`);
   lines.push('');
   const t0 = Date.now();
