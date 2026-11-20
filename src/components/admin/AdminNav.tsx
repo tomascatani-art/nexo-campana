@@ -64,7 +64,7 @@ export function AdminNav({ businessName, userName, newOrders }: { businessName: 
   const brand = (
     <span className="flex items-center gap-2.5">
       <svg viewBox="0 0 64 64" className="size-9" aria-hidden><circle cx="32" cy="32" r="28.5" fill="none" stroke="#f2c230" strokeWidth="3" /><path d="M19 46V18h8l11 16V18h7v28h-8L26 30v16z" fill="#f2c230" /></svg>
-      <span className="leading-tight"><span className="block font-display text-lg font-black uppercase text-white">{businessName}</span><span className="block text-xs text-white/50">Panel de administración</span></span>
+      <span className="leading-tight"><span className="block whitespace-nowrap font-display text-lg font-black uppercase text-white">{businessName}</span><span className="block whitespace-nowrap text-xs text-white/50">Panel de administración</span></span>
     </span>
   );
 
@@ -86,7 +86,12 @@ export function AdminNav({ businessName, userName, newOrders }: { businessName: 
 
       <header className="no-print fixed inset-x-0 top-0 z-40 flex h-16 items-center justify-between bg-ink px-4 text-white lg:hidden">
         {brand}
-        <button onClick={() => setOpen(true)} className="inline-flex items-center gap-2 rounded-xl border border-white/20 px-3 py-2 font-semibold" aria-label="Abrir menú"><Menu className="size-5" /> Menú</button>
+        <div className="flex items-center gap-2">
+          <form action={logoutAction}>
+            <button className="inline-flex items-center gap-1.5 rounded-xl border border-white/20 px-2.5 py-2 text-sm font-semibold" aria-label="Cerrar sesión"><LogOut className="size-5" /> <span className="hidden min-[400px]:inline">Salir</span></button>
+          </form>
+          <button onClick={() => setOpen(true)} className="inline-flex items-center gap-2 rounded-xl border border-white/20 px-3 py-2 font-semibold" aria-label="Abrir menú"><Menu className="size-5" /> Menú</button>
+        </div>
       </header>
       {open && (
         <div className="fixed inset-0 z-50 flex flex-col bg-ink lg:hidden">

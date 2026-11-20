@@ -65,7 +65,6 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
               <p>© {year} {s.business_name}. Todos los derechos reservados.</p>
               {s.admission_notice && <p className="mt-1 text-xs" data-testid="admission-notice"><Link href="/#politicas" className="hover:text-white">{s.admission_notice}</Link></p>}
             </div>
-            <Link href="/admin" className="hover:text-white" rel="nofollow">Acceso propietario</Link>
           </div>
         </footer>
       </div>
