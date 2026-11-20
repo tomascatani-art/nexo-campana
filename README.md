@@ -165,3 +165,4 @@ src/lib/                      Datos, precios, formato, SEO, auth
 ```
 
 Comandos: `npm run dev` · `npm run build` · `npm run typecheck` · `npm run db:setup` · `npm run admin -- usuario "clave" "Nombre"` · `npm run demo`.
+ 
