@@ -2,7 +2,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, Loader2 } from 'lucide-react';
-import { saveOrderNoteAction, setOrderStatusAction } from '@/app/admin/actions';
+import { extendOrderAction, markNoShowAction, removeNoShowAction, saveOrderNoteAction, setOrderStatusAction } from '@/app/admin/actions';
 import { Flash } from './ui';
 
 export const STATUS_UI: Record<string, { label: string; cls: string; next?: string; nextLabel?: string }> = {
@@ -12,6 +12,7 @@ export const STATUS_UI: Record<string, { label: string; cls: string; next?: stri
   enviado: { label: 'Enviado / listo', cls: 'bg-cyan-100 text-cyan-800', next: 'entregado', nextLabel: 'Marcar “Entregado”' },
   entregado: { label: 'Entregado', cls: 'bg-emerald-100 text-emerald-800' },
   cancelado: { label: 'Cancelado', cls: 'bg-gray-200 text-gray-600' },
+  vencido: { label: 'Vencido', cls: 'bg-red-100 text-red-700' },
 };
 const FLOW = ['pendiente', 'confirmado', 'preparando', 'enviado', 'entregado'];
 
@@ -39,7 +40,7 @@ export function StatusControls({ id, status, stockApplied }: { id: string; statu
       <ol className="flex items-center gap-1" aria-label="Estado del pedido">
         {FLOW.map((s, i) => (
           <li key={s} className="flex flex-1 flex-col items-center gap-1.5 text-center">
-            <span className={`flex size-8 items-center justify-center rounded-full text-xs font-bold ${status === 'cancelado' ? 'bg-gray-100 text-gray-400' : i <= idx ? 'bg-gold text-ink' : 'bg-gray-100 text-gray-400'}`}>{i < idx ? <Check className="size-4" /> : i + 1}</span>
+            <span className={`flex size-8 items-center justify-center rounded-full text-xs font-bold ${status === 'cancelado' || status === 'vencido' ? 'bg-gray-100 text-gray-400' : i <= idx ? 'bg-gold text-ink' : 'bg-gray-100 text-gray-400'}`}>{i < idx ? <Check className="size-4" /> : i + 1}</span>
             <span className={`text-[11px] font-semibold leading-tight ${i === idx ? 'text-gray-900' : 'text-gray-400'}`}>{STATUS_UI[s].label}</span>
           </li>
         ))}
@@ -59,7 +60,7 @@ export function StatusControls({ id, status, stockApplied }: { id: string; statu
             {FLOW.filter((s) => s !== status).map((s) => <option key={s} value={s}>{STATUS_UI[s].label}</option>)}
           </select>
         </label>
-        {status !== 'cancelado' && (confirmCancel ? (
+        {status !== 'cancelado' && status !== 'vencido' && (confirmCancel ? (
           <span className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-1.5 text-sm">
             ¿Cancelar?{stockApplied && ' El stock vuelve.'}
             <button onClick={() => setConfirmCancel(false)} className="font-semibold text-gray-600">No</button>
@@ -89,6 +90,58 @@ export function OrderNote({ id, note, paid }: { id: string; note: string | null;
         <textarea value={v} onChange={(e) => setV(e.target.value)} onBlur={() => save()} rows={2} className="w-full rounded-xl border border-gray-300 px-3 py-2 outline-none focus:border-gold-deep" placeholder="Ej: pasa a retirar el sábado" />
       </label>
       {state !== 'idle' && <p className="text-sm text-gray-500">{state === 'saving' ? 'Guardando…' : 'Guardado ✓'}</p>}
+    </div>
+  );
+}
+
+/** Retiro en el local: hasta cuándo se guarda, dar más tiempo, "No lo retiró" y aviso de seña. */
+export function PickupControls({ id, status, deadline, left, noShow, flaggedTimes, needsDeposit, depositPct, phone }: {
+  id: string; status: string; deadline: string | null; left: string | null; noShow: boolean; flaggedTimes: number; needsDeposit: boolean; depositPct: number; phone: string;
+}) {
+  const [pending, start] = useTransition();
+  const [msg, setMsg] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState(false);
+  const router = useRouter();
+  const run = (fn: () => Promise<{ ok: boolean; message?: string; error?: string }>) => start(async () => {
+    setErr(null);
+    const r = await fn();
+    if (r.ok) { setMsg(r.message ?? 'Listo'); setConfirm(false); router.refresh(); } else setErr(r.error ?? 'Error');
+  });
+  const active = ['pendiente', 'confirmado', 'preparando', 'enviado'].includes(status);
+  return (
+    <div className="space-y-3">
+      {msg && <Flash message={msg} />}
+      {err && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm font-medium text-red-700">{err}</p>}
+      {flaggedTimes > 0 && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800" data-testid="noshow-banner">
+          <p className="font-bold">⚠️ Este cliente ya dejó {flaggedTimes === 1 ? 'un pedido' : `${flaggedTimes} pedidos`} sin retirar.</p>
+          <p className="mt-0.5">{needsDeposit ? `Se le avisó que tiene que dejar una seña del ${depositPct}%.` : `Pedile una seña del ${depositPct}% antes de prepararlo.`} Si ya cumplió, sacalo de la lista.</p>
+          <button onClick={() => run(() => removeNoShowAction(phone))} disabled={pending} className="mt-2 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-semibold text-red-700 hover:bg-red-100">Sacar de la lista</button>
+        </div>
+      )}
+      {active ? (
+        <p className="text-gray-700">⏳ {deadline ? <>Se guarda hasta el <b>{deadline}</b>{left ? ` (${left})` : ''}. Si no lo retira, pasa solo a “Vencido” y el stock vuelve.</> : 'Este pedido no tiene vencimiento.'}</p>
+      ) : status === 'vencido' ? (
+        <p className="text-gray-700">Este pedido venció porque no lo retiraron a tiempo. Si el cliente igual lo quiere, dale más tiempo y vuelve a “Pendiente”.</p>
+      ) : null}
+      {(active || status === 'vencido') && (
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => run(() => extendOrderAction(id, 24))} disabled={pending} className="inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2.5 font-semibold hover:border-gold-deep disabled:opacity-60">
+            {pending ? <Loader2 className="size-4 animate-spin" /> : '⏳'} Darle 24 h más
+          </button>
+          {!noShow && (confirm ? (
+            <span className="flex flex-wrap items-center gap-2 rounded-xl bg-red-50 px-3 py-2 text-sm">
+              ¿No lo retiró? {active ? 'El pedido vence, ' : ''}lo anotamos en “No retiraron” y la próxima le pedimos seña.
+              <button onClick={() => setConfirm(false)} className="font-semibold text-gray-600">No</button>
+              <button onClick={() => run(() => markNoShowAction(id))} className="font-bold text-red-700">Sí, no lo retiró</button>
+            </span>
+          ) : (
+            <button onClick={() => setConfirm(true)} disabled={pending} className="rounded-xl border border-red-200 bg-white px-4 py-2.5 font-semibold text-red-700 hover:bg-red-50">🚫 No lo retiró</button>
+          ))}
+        </div>
+      )}
+      {noShow && <p className="text-sm font-semibold text-red-700">🚫 Marcado como “No lo retiró”.</p>}
     </div>
   );
 }

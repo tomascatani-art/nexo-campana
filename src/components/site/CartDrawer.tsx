@@ -18,6 +18,7 @@ export type CheckoutConfig = {
   cashPct: number | null;
   transferPct: number | null; catPct: Record<string, number>; usdRate: number | null;
   transferNotice: string | null; refundPolicy: string | null;
+  holdHours: number;
 };
 
 type Form = { name: string; phone: string; delivery: 'retiro' | 'envio'; address: string; zone: string; payment: string; note: string };
@@ -28,7 +29,7 @@ export function CartDrawer({ cfg }: { cfg: CheckoutConfig }) {
   const [f, setF] = useState<Form>({ name: '', phone: '', delivery: cfg.pickup || !cfg.shipping ? 'retiro' : 'envio', address: '', zone: '', payment: cfg.payments[0] ?? '', note: '' });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<{ text: string; field?: string } | null>(null);
-  const [done, setDone] = useState<{ code: string; message: string } | null>(null);
+  const [done, setDone] = useState<{ code: string; message: string; holdHours: number; deposit: { pct: number; amount: number } | null } | null>(null);
   const [copied, setCopied] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const panel = useRef<HTMLDivElement>(null);
@@ -73,7 +74,7 @@ export function CartDrawer({ cfg }: { cfg: CheckoutConfig }) {
       setErr({ text: r.error, field: 'field' in r ? r.field : undefined });
       return;
     }
-    setDone({ code: r.code, message: r.message });
+    setDone({ code: r.code, message: r.message, holdHours: r.holdHours, deposit: r.deposit });
     setStep('listo');
     clear();
     if (cfg.whatsapp) {
@@ -107,6 +108,8 @@ export function CartDrawer({ cfg }: { cfg: CheckoutConfig }) {
             <div className="animate-pop flex size-20 items-center justify-center rounded-full bg-wa/15 text-wa"><CircleCheck className="size-11" /></div>
             <p className="mt-5 font-display text-2xl font-black">Pedido #{done.code}</p>
             <p className="mt-2 text-mist">{cfg.whatsapp ? 'Se abrió WhatsApp con tu pedido ordenado. Tocá Enviar y te respondemos para confirmar.' : 'Copiá el pedido y envialo a nuestro WhatsApp.'}</p>
+            {done.deposit && <p className="mt-5 rounded-xl border border-amber-400/40 bg-amber-400/10 p-3 text-sm font-semibold text-amber-200" data-testid="deposit-notice">💰 Como un pedido anterior no se retiró, para reservar este te pedimos una seña del {done.deposit.pct}% ({formatPrice(done.deposit.amount)}). Te pasamos los datos por WhatsApp.</p>}
+            {done.holdHours > 0 && <p className="mt-3 text-sm text-mist" data-testid="hold-done">⏳ Te lo guardamos {done.holdHours} horas para que lo retires.</p>}
             {cfg.whatsapp && <a href={waUrl(done.message)} target="_blank" rel="noopener noreferrer" className="mt-6 inline-flex items-center gap-2 rounded-xl bg-wa px-6 py-3.5 font-bold"><WhatsAppIcon className="size-5" /> Abrir WhatsApp de nuevo</a>}
             <button onClick={async () => { try { await navigator.clipboard.writeText(done.message); setCopied(true); } catch { /* */ } }} className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-mist hover:text-white"><Copy className="size-4" /> {copied ? 'Copiado ✓' : 'Copiar pedido'}</button>
             {f.payment === 'transferencia' && (cfg.transferInfo ? <p className="mt-6 rounded-xl border border-white/10 p-3 text-sm text-mist">Para transferir: <span className="font-semibold text-white">{cfg.transferInfo}</span></p> : cfg.transferNotice ? <p className="mt-6 rounded-xl border border-amber-400/40 bg-amber-400/10 p-3 text-sm font-semibold text-amber-200">{cfg.transferNotice}</p> : null)}
@@ -222,6 +225,7 @@ export function CartDrawer({ cfg }: { cfg: CheckoutConfig }) {
               {disc > 0 && <div className="flex justify-between text-sm font-semibold text-emerald-300" data-testid="cash-discount"><span>Descuento efectivo ({cfg.cashPct}%)</span><span className="tabular-nums">-{formatPrice(disc)}</span></div>}
               {f.delivery === 'envio' && <div className="flex justify-between text-sm text-mist"><span>Envío</span><span className="tabular-nums">{ship == null ? 'A convenir' : ship === 0 ? 'Gratis' : formatPrice(ship)}</span></div>}
               <div className="flex items-end justify-between"><span className="font-semibold">Total</span><span className="font-display text-2xl font-black text-gold tabular-nums">{formatPrice(grand)}</span></div>
+              {f.delivery === 'retiro' && cfg.holdHours > 0 && <p className="flex items-start justify-center gap-1.5 text-center text-xs font-semibold leading-snug text-gold" data-testid="hold-notice">⏳ Te guardamos el pedido {cfg.holdHours} horas. Si no lo retirás, se cancela solo.</p>}
               {cfg.refundPolicy && <p className="text-center text-[11px] leading-snug text-mist" data-testid="refund-policy">⚠️ {cfg.refundPolicy}</p>}
               {err && <p role="alert" className="flex items-start gap-2 rounded-xl bg-red-500/15 p-3 text-sm font-medium text-red-200"><CircleAlert className="mt-0.5 size-4 shrink-0" /> {err.text}</p>}
               <button type="submit" disabled={busy} className="btn-shine flex w-full items-center justify-center gap-2 rounded-xl bg-wa py-4 text-lg font-bold text-white shadow-lg shadow-wa/20 transition hover:bg-wa-deep active:scale-[.98] disabled:opacity-60">

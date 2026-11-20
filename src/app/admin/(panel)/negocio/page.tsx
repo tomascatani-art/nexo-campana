@@ -71,6 +71,23 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               </Link>
               <PriceField label="Compra mínima (opcional)" name="min_order_total" defaultValue={s.min_order_total} help="Útil si vendés solo por mayor." />
             </Card>
+            <Card title="Pedidos para retirar" description="Para que no te queden pedidos apartados que nadie viene a buscar.">
+              <label className="block max-w-xs">
+                <span className="mb-1.5 block font-semibold text-gray-800">⏳ Cuánto tiempo se guarda un pedido</span>
+                <select name="order_hold_hours" defaultValue={String(s.order_hold_hours)} className={`${inputCls} text-lg font-bold`}>
+                  <option value="24">24 horas</option>
+                  <option value="48">48 horas</option>
+                  <option value="72">72 horas</option>
+                  <option value="0">No vencen nunca</option>
+                </select>
+                <span className="mt-1.5 block text-sm text-gray-500">El cliente lo ve al hacer el pedido. Si no lo retira a tiempo, el pedido pasa solo a “Vencido” y el stock vuelve.</span>
+              </label>
+              <label className="mt-4 block max-w-xs">
+                <span className="mb-1.5 block font-semibold text-gray-800">💰 Seña para los que no retiraron</span>
+                <span className="relative block"><input name="noshow_deposit_pct" defaultValue={s.noshow_deposit_pct ?? 20} inputMode="decimal" className={`${inputCls} pr-10 text-lg font-bold`} /><span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 font-semibold text-gray-500">%</span></span>
+                <span className="mt-1.5 block text-sm text-gray-500">A los clientes de la lista <Link href="/admin/clientes#no-retiraron" className="underline">“No retiraron”</Link> se les avisa que tienen que dejar esta seña.</span>
+              </label>
+            </Card>
             <Card title="Medios de pago" description="Los que el cliente puede elegir. El pago se coordina con vos al confirmar (no se cobra online).">
               <div className="grid gap-3 sm:grid-cols-2">
                 {Object.entries(PAYMENT_METHODS).map(([k, l]) => (

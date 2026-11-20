@@ -51,6 +51,8 @@ export type Settings = {
   usd_rate: number | null;
   usd_rate_at: string | null;
   greeting_template: string | null;
+  order_hold_hours: number;       // horas que se guarda un pedido para retirar (0 = no vence)
+  noshow_deposit_pct: number | null; // seña para los que no retiraron (%)
   payment_methods: string[];
   transfer_info: string | null;
   min_order_total: number | null;
@@ -141,7 +143,7 @@ export type PublicProduct = {
 
 export type Variant = { id: string; product_id: string; name: string; sku: string | null; price: number | null; stock_qty: number; active: boolean; sort_order: number };
 
-export const ORDER_STATUSES = ['pendiente', 'confirmado', 'preparando', 'enviado', 'entregado', 'cancelado'] as const;
+export const ORDER_STATUSES = ['pendiente', 'confirmado', 'preparando', 'enviado', 'entregado', 'cancelado', 'vencido'] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 export type OrderItem = { product_id: string; variant_id: string | null; name: string; variant: string | null; qty: number; unit_price: number; subtotal: number; bulk?: boolean };
 export type Order = {
@@ -150,6 +152,7 @@ export type Order = {
   items: OrderItem[]; subtotal: number; shipping_cost: number | null; discount?: number | null; surcharge?: number | null; usd_rate?: number | null; total: number;
   status: OrderStatus; stock_applied: boolean; history: { status: string; at: string; by: string }[]; admin_note: string | null;
   payment_status: 'pendiente' | 'pagado'; created_at: string; updated_at: string;
+  expires_at?: string | null; needs_deposit?: boolean; no_show?: boolean;
 };
 
 export type Movement = {

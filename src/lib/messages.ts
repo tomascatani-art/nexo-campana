@@ -46,6 +46,7 @@ export function statusMessage(o: Pick<Order, 'code' | 'customer_name' | 'total' 
       ? `¡Hola ${n}! Tu pedido #${o.code} ya salió para ${o.address ?? 'tu dirección'} 🚚 Total: ${total}.`
       : `¡Hola ${n}! Tu pedido #${o.code} está listo para retirar ✅ Te esperamos en ${where}. Total: ${total}.`;
     case 'entregado': return `¡Gracias por tu compra, ${n}! 🙌 Si te gustó la atención, dejanos tu opinión acá: ${site}/#opiniones`;
+    case 'vencido': return `Hola ${n}, te escribimos de ${s.business_name} por tu pedido #${o.code}: como no pasaste a retirarlo a tiempo, se canceló. Si todavía lo querés, escribinos y vemos si queda stock.`;
     case 'cancelado': return `Hola ${n}, te escribimos por tu pedido #${o.code}: lo tuvimos que cancelar. Cualquier duda, escribinos.`;
     default: return `¡Hola ${n}! Recibimos tu pedido #${o.code} por ${total}. En breve te lo confirmamos.`;
   }

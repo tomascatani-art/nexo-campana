@@ -113,6 +113,16 @@ export function timeAgo(iso: string) {
   return d === 1 ? 'ayer' : `hace ${d} días`;
 }
 
+/** Cuánto le queda a un pedido para retirarlo: "faltan 5 h", "faltan 2 días", o null si ya venció. */
+export function timeLeft(iso: string | Date | null | undefined) {
+  if (!iso) return null;
+  const diff = (new Date(iso).getTime() - Date.now()) / 1000;
+  if (!Number.isFinite(diff) || diff <= 0) return null;
+  if (diff < 3600) return `faltan ${Math.max(1, Math.floor(diff / 60))} min`;
+  if (diff < 86400 * 2) return `faltan ${Math.floor(diff / 3600)} h`;
+  return `faltan ${Math.floor(diff / 86400)} días`;
+}
+
 export function stockState(p: { track_stock: boolean; stock_qty: number; min_stock: number }) {
   if (!p.track_stock) return 'untracked' as const;
   if (p.stock_qty <= 0) return 'out' as const;

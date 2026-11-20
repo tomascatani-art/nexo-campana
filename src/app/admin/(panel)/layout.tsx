@@ -3,12 +3,14 @@ import { requireAdmin } from '@/lib/auth';
 import { getSettings } from '@/lib/data';
 import { sql } from '@/lib/db';
 import { AdminNav } from '@/components/admin/AdminNav';
+import { expireDueOrders } from '@/lib/orders';
 
 export const metadata: Metadata = { title: { default: 'Panel', template: '%s · Panel' }, robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
 
 export default async function PanelLayout({ children }: { children: React.ReactNode }) {
   const user = await requireAdmin();
+  await expireDueOrders(); // pedidos que no retiraron a tiempo → "Vencido" (como mucho una vez por minuto)
   const [s, [{ n }]] = await Promise.all([getSettings(), sql<{ n: number }[]>`select count(*)::int as n from orders where status = 'pendiente'`]);
   return (
     <div className="min-h-dvh bg-gray-50 text-gray-900">

@@ -330,3 +330,23 @@ create table if not exists auth_config (
   updated_at           timestamptz not null default now()
 );
 alter table auth_config enable row level security;
+
+-- Pedidos que no se retiran: vencimiento + lista "No retiraron" (la web también lo crea sola si falta)
+alter table site_settings add column if not exists order_hold_hours int not null default 48;   -- 0 = no vencen
+alter table site_settings add column if not exists noshow_deposit_pct numeric(5,2) default 20;  -- seña para los que no retiraron
+alter table orders add column if not exists expires_at timestamptz;
+alter table orders add column if not exists needs_deposit boolean not null default false;
+alter table orders add column if not exists no_show boolean not null default false;
+alter table orders drop constraint if exists orders_status_check;
+alter table orders add constraint orders_status_check check (status in ('pendiente','confirmado','preparando','enviado','entregado','cancelado','vencido'));
+create index if not exists orders_expires on orders (expires_at) where expires_at is not null;
+create table if not exists no_show_customers (
+  phone_key        text primary key,
+  name             text,
+  phone            text not null,
+  times            int not null default 1,
+  last_order_code  text,
+  created_at       timestamptz not null default now(),
+  updated_at       timestamptz not null default now()
+);
+alter table no_show_customers enable row level security;

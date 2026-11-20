@@ -6,6 +6,7 @@ import { sql } from '@/lib/db';
 import { getSettings } from '@/lib/data';
 import { formatPrice, offerActive, paymentAdjust, shippingFor, toUsd, unitPriceFor } from '@/lib/pricing';
 import { PAYMENT_METHODS } from '@/lib/types';
+import { expireDueOrders, findNoShow } from '@/lib/orders';
 
 const input = z.object({
   items: z.array(z.object({ id: z.string().uuid(), v: z.string().uuid().optional(), qty: z.number().int().min(1).max(10000) })).min(1).max(80),
@@ -18,7 +19,7 @@ const input = z.object({
   note: z.string().trim().max(400).optional(),
 });
 
-export type OrderResult = { ok: true; code: string; message: string; total: number } | { ok: false; error: string; field?: string };
+export type OrderResult = { ok: true; code: string; message: string; total: number; holdHours: number; deposit: { pct: number; amount: number } | null } | { ok: false; error: string; field?: string };
 
 /**
  * Registra el pedido (para que el negocio lo vea en el panel) con precios recalculados
@@ -45,6 +46,9 @@ export async function submitOrderAction(raw: unknown): Promise<OrderResult> {
   try {
     const [{ n }] = await sql<{ n: number }[]>`select count(*)::int as n from orders where ip = ${ip} and created_at > now() - interval '1 hour'`;
     if (n >= 12) return { ok: false, error: 'Hiciste muchos pedidos seguidos. Probá de nuevo en un rato o escribinos por WhatsApp.' };
+
+    // Primero se liberan los pedidos vencidos (así el stock que devuelven ya cuenta para este pedido)
+    await expireDueOrders();
 
     const ids = [...new Set(d.items.map((i) => i.id))];
     const rows = await sql<{ id: string; name: string; price: number | null; bulk_qty: number | null; bulk_price: number | null; unit_label: string | null; track_stock: boolean; stock_qty: number; variant_label: string | null; offer_price: number | null; offer_from: string | null; offer_until: string | null; cat: string | null }[]>`
@@ -81,6 +85,12 @@ export async function submitOrderAction(raw: unknown): Promise<OrderResult> {
     const total = subtotal - discount + surcharge + (shipping ?? 0);
     const usd = payment === 'dolares' ? toUsd(total, s.usd_rate) : null;
 
+    // Pedido para retirar: se guarda X horas. Si el cliente ya dejó pedidos sin retirar, se le pide seña.
+    const hold = d.delivery === 'retiro' ? s.order_hold_hours : 0;
+    const noShow = await findNoShow(d.phone).catch(() => null);
+    const depPct = s.noshow_deposit_pct || 20;
+    const deposit = noShow ? { pct: depPct, amount: Math.ceil((total * depPct) / 100 / 100) * 100 } : null;
+
     let code = '';
     await sql.begin(async (tx) => {
       const [{ next }] = await tx<{ next: number }[]>`select coalesce(max(code::int), 1000) + 1 as next from orders where code ~ '^[0-9]+$'`;
@@ -90,7 +100,9 @@ export async function submitOrderAction(raw: unknown): Promise<OrderResult> {
         address: d.delivery === 'envio' ? d.address : null, shipping_zone: zone?.name ?? null, payment_method: payment,
         items: tx.json(lines.map(({ priced: _p, unit_label: _u, cat: _c, ...l }) => l)), subtotal, shipping_cost: shipping, discount: discount || null, surcharge: surcharge || null, usd_rate: usd ? s.usd_rate : null, total, ip,
         history: tx.json([{ status: 'pendiente', at: new Date().toISOString(), by: 'cliente' }]),
+        needs_deposit: !!deposit,
       })}`;
+      if (hold > 0) await tx`update orders set expires_at = now() + make_interval(hours => ${hold}) where code = ${code}`;
     });
     revalidatePath('/admin', 'layout');
 
@@ -112,8 +124,10 @@ export async function submitOrderAction(raw: unknown): Promise<OrderResult> {
       d.delivery === 'envio' ? `🚚 Envío a domicilio${zone ? ` · ${zone.name}` : ''}\n📍 ${d.address}` : '🏬 Retiro en el local',
       payment ? `💳 Pago: ${PAYMENT_METHODS[payment] ?? payment}` : '',
       d.note ? `📝 ${d.note}` : '',
+      hold > 0 ? `\n⏳ Sé que el pedido se guarda ${hold} horas: si no lo retiro, se cancela solo.` : '',
+      deposit ? `💰 Para reservarlo dejo una seña del ${deposit.pct}% (${formatPrice(deposit.amount)}). ¿Me pasan los datos para pagarla?` : '',
     ].filter((l, i, a) => !(l === '' && (a[i - 1] === '' || i === a.length - 1))).join('\n').trim();
-    return { ok: true, code, message: msg, total };
+    return { ok: true, code, message: msg, total, holdHours: hold, deposit };
   } catch (e) {
     console.error('submitOrderAction', e);
     return { ok: false, error: 'No pudimos registrar el pedido. Probá de nuevo o escribinos por WhatsApp.' };

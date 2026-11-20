@@ -186,3 +186,10 @@ Revisamos cómo resuelven el stock las herramientas más usadas en el mundo y en
 | **Contabilium / Xubio** | Gestión y facturación argentina, exportes | Exportar a Excel (CSV) para pasarlo al contador o a su sistema |
 
 Lo que **no** incluimos a propósito: facturación electrónica AFIP/ARCA, múltiples depósitos y órdenes de compra a proveedores. Para NEXO hoy sumarían complejidad; si más adelante se necesitan, el historial y la exportación permiten conectarse con Contabilium o Xubio.
+
+## Pedidos que no se retiran
+
+- **Vencimiento:** cada pedido para retirar se guarda 48 horas (se cambia en *Negocio → Venta → Pedidos para retirar*: 24, 48, 72 h o "no vencen"). El cliente lo ve en el carrito y en el mensaje de WhatsApp. Si no lo retira a tiempo, el pedido pasa solo a **Vencido** y, si ya habías descontado el stock, el stock vuelve.
+- **Darle más tiempo:** en el pedido, botón **"Darle 24 h más"** (si estaba vencido, vuelve a Pendiente).
+- **No lo retiró:** en el pedido, botón **"No lo retiró"**. El cliente queda anotado en *Clientes → No retiraron*. La próxima vez que pida, la web le avisa que tiene que dejar una seña (20% por defecto) y el pedido te aparece marcado en rojo.
+- Para sacar a alguien de la lista: *Clientes → No retiraron → Sacar de la lista*.
