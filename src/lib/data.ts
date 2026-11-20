@@ -1,7 +1,6 @@
 import 'server-only';
 import { cache } from 'react';
 import { sql } from './db';
-import { trace } from './trace';
 import { safeIso, stockState } from './format';
 import { offerActive } from './pricing';
 import type { Category, Hours, Review, SpecialDay, WaitlistEntry, Movement, Order, Product, PublicProduct, Settings, Variant } from './types';
@@ -109,8 +108,7 @@ export async function getPublicProductBySlug(slug: string) {
 }
 
 export async function getPublicData() {
-  const t = <T,>(name: string, p: Promise<T>) => p.then((v) => { trace(`dato ok: ${name}`); return v; }, (e) => { trace(`dato ERROR: ${name}: ${String(e?.message || e).slice(0, 120)}`); throw e; });
-  const [settings, hours, categories, products, specials, reviews] = await Promise.all([t('negocio', getSettings()), t('horarios', getHours()), t('categorias', getCategories({ onlyActive: true })), t('productos', getPublicProducts()), t('especiales', getSpecialDays()), t('opiniones', getPublishedReviews())]);
+  const [settings, hours, categories, products, specials, reviews] = await Promise.all([getSettings(), getHours(), getCategories({ onlyActive: true }), getPublicProducts(), getSpecialDays(), getPublishedReviews()]);
   return { settings, hours, specials, reviews, categories: categories.filter((c) => products.some((p) => p.category_slug === c.slug)), products };
 }
 

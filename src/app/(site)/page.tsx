@@ -1,8 +1,6 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
-import { trace } from '@/lib/trace';
-trace('pagina: modulo cargado');
 import { ArrowRight, BadgeCheck, Bell, ClipboardList, Clock, MapPin, Navigation, PackageCheck, Store, Truck, Wallet } from 'lucide-react';
 import { getPublicData } from '@/lib/data';
 import { groupHours, siteUrl, specialDayLabel, specialText, waLink } from '@/lib/format';
@@ -22,9 +20,7 @@ import { HeroVideo } from '@/components/site/HeroVideo';
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata(): Promise<Metadata> {
-  trace('metadata: inicio');
   const { settings: s } = await getPublicData();
-  trace('metadata: ok');
   const title = s.seo_title || `${s.business_name} | ${s.business_kind} en ${s.city ?? ''}`;
   const description = s.seo_description || s.hero_subtitle || '';
   return {
@@ -38,9 +34,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function Home() {
-  trace('pagina: inicio');
   const { settings: s, hours, specials, categories, products, reviews } = await getPublicData();
-  trace('pagina: datos ok');
   const shipsNow = s.shipping_mode === 'activo';
   const offers = products.filter((p) => p.old_price != null && p.price != null && p.old_price > p.price && p.availability !== 'out').slice(0, 8);
   const featured = products.filter((p) => p.featured && p.availability !== 'out' && !offers.includes(p)).slice(0, 4);
@@ -62,8 +56,6 @@ export default async function Home() {
     s.refund_policy,
     s.admission_notice,
   ].filter((x): x is string => !!x);
-
-  trace("pagina: armando");
   return (
     <main>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(buildJsonLd(s, hours, products)).replace(/</g, '\\u003c') }} />

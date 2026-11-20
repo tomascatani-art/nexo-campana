@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { trace } from '@/lib/trace';
 import { MapPin } from 'lucide-react';
 import { getPublicData } from '@/lib/data';
 import { groupHours, specialDayLabel, specialText, upcomingSpecials, waLink } from '@/lib/format';
@@ -13,15 +12,12 @@ import { FloatingBar } from '@/components/site/FloatingBar';
 import { Interactions } from '@/components/site/Interactions';
 
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
-  trace('layout: inicio');
   const { settings: s, hours, specials, products, categories } = await getPublicData();
-  trace('layout: datos ok');
   const soon = upcomingSpecials(specials, 10).slice(0, 2);
   const notice = soon.length ? `📅 ${soon.map((d) => `${specialDayLabel(d.day)} (${d.reason}): ${specialText(d)}`).join(' · ')}` : null;
   const wa = waLink(s.whatsapp_number, `Hola ${s.business_name}! Quería hacer una consulta.`);
   const hasOffers = products.some((p) => p.old_price != null && p.price != null && p.old_price > p.price);
   const year = new Date().getFullYear();
-  trace("layout: armando");
   return (
     <ListProvider products={products}>
       <div className="min-h-dvh overflow-x-clip bg-ink text-white">

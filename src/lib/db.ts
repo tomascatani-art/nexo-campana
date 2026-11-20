@@ -1,6 +1,5 @@
 import 'server-only';
 import postgres from 'postgres';
-import { trace } from './trace';
 
 const url = process.env.DATABASE_URL;
 if (!url) throw new Error('Falta la variable de entorno DATABASE_URL');
@@ -34,12 +33,14 @@ export const sql =
   globalForDb.__sql ??
   postgres(url, {
     prepare: false, // compatible con el pooler de Supabase (modo transacción)
+    // Una consulta a la vez por conexión: el pooler de Supabase (modo transacción) a veces deja
+    // colgadas las consultas "en fila" (pipelining) y la página quedaba cargando para siempre.
+    ...({ max_pipeline: 0 } as object), // opción válida de postgres.js que falta en sus tipos
     max: Number(process.env.DB_MAX) || (isLocal ? 10 : 3),
     idle_timeout: process.env.VERCEL ? 5 : 20, // en Vercel no dejar conexiones colgadas
     connect_timeout: 10,
     ssl: isLocal ? false : 'require',
     onnotice: () => {},
-    debug: process.env.VERCEL ? (conn: number, q: string) => trace(`sql#${conn}: ${q.replace(/\s+/g, ' ').slice(0, 50)}`) : undefined,
     types: {
       // date, timestamp, timestamptz
       fecha: { to: 1184, from: [1082, 1114, 1184], serialize: (x: Date | string) => (x instanceof Date ? x.toISOString() : x), parse: parsePgDate },
