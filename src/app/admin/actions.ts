@@ -7,6 +7,7 @@ import { sql } from '@/lib/db';
 import { changePassword, login, logout, passwordProblem, requireAdmin } from '@/lib/auth';
 import { cleanupOrphanImages, storeImage } from '@/lib/images';
 import { slugify } from '@/lib/format';
+import { waIntl } from '@/lib/messages';
 import { ACTIVE_STATUSES, applyOrderStatus, ensureHoldSchema, phoneKey } from '@/lib/orders';
 
 export type FormState = { ok?: boolean; error?: string; message?: string; field?: string } | undefined;
@@ -545,7 +546,8 @@ const settingsSchema = z.object({
   about_title: text(120),
   about_text: text(3000),
   about_image_id: optUuid,
-  whatsapp_number: z.preprocess((v) => String(v ?? '').replace(/\D/g, ''), z.string().refine((s) => s === '' || (s.length >= 10 && s.length <= 15), 'El WhatsApp debe tener entre 10 y 15 números (ej: 5493489123456)')),
+  // se acepta como lo escribe el dueño (3487 15-679830, 03487…, +54 9…) y se guarda en formato internacional para wa.me
+  whatsapp_number: z.preprocess((v) => { const d = String(v ?? '').replace(/\D/g, ''); return d ? waIntl(d) : ''; }, z.string().refine((s) => s === '' || (s.length >= 10 && s.length <= 15), 'El WhatsApp debe tener entre 10 y 15 números (ej: 5493489123456)')),
   channel_url: url('canal de WhatsApp').refine((v) => !v || /^https:\/\/(www\.)?whatsapp\.com\/channel\//.test(v), 'El enlace del canal tiene que ser del tipo https://whatsapp.com/channel/…'),
   phone: text(40),
   email: z.preprocess((v) => (typeof v === 'string' ? v.trim() : v), z.union([z.literal(''), z.string().email('El email no es válido').max(120)])).transform((v) => v || null),
