@@ -34,8 +34,8 @@ export const sql =
   postgres(url, {
     prepare: false, // compatible con el pooler de Supabase (modo transacción)
     max: Number(process.env.DB_MAX) || (isLocal ? 10 : 3),
-    idle_timeout: 20,
-    connect_timeout: 15,
+    idle_timeout: process.env.VERCEL ? 5 : 20, // en Vercel no dejar conexiones colgadas
+    connect_timeout: 10,
     ssl: isLocal ? false : 'require',
     onnotice: () => {},
     types: {
