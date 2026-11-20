@@ -5,7 +5,7 @@ import { stockMovementAction } from '@/app/admin/actions';
 import { AdminForm, SubmitButton } from './ui';
 import { inputCls } from './fields';
 
-type P = { id: string; name: string; stock_qty: number; price: number | null; variants: { id: string; name: string; stock_qty: number }[] };
+type P = { id: string; name: string; stock_qty: number; price: number | null; tracked: boolean; variants: { id: string; name: string; stock_qty: number }[] };
 
 const KINDS = [
   ['entrada', 'Entrada', 'Llegó mercadería', ArrowDownToLine],
@@ -21,9 +21,10 @@ export function StockForm({ products, initialId }: { products: P[]; initialId?: 
   const p = products.find((x) => x.id === pid);
   const v = p?.variants.find((x) => x.id === vid);
   const current = v ? v.stock_qty : p?.stock_qty;
+  const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const filtered = useMemo(() => {
-    const t = q.trim().toLowerCase();
-    return t ? products.filter((x) => x.name.toLowerCase().includes(t)).slice(0, 8) : [];
+    const t = norm(q.trim());
+    return t ? products.filter((x) => norm(x.name).includes(t)).slice(0, 8) : [];
   }, [q, products]);
 
   return (
@@ -41,19 +42,22 @@ export function StockForm({ products, initialId }: { products: P[]; initialId?: 
       </div>
       {p ? (
         <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-3">
-          <span><span className="block font-bold">{p.name}</span><span className="text-sm text-gray-500">Stock actual: <b>{current}</b></span></span>
+          <span><span className="block font-bold">{p.name}</span><span className="text-sm text-gray-500">{p.tracked ? <>Stock actual: <b>{current}</b></> : 'Todavía no controlaba stock: se activa al registrar este movimiento.'}</span></span>
           <button type="button" onClick={() => { setPid(''); setVid(''); }} className="rounded-lg px-3 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100">Cambiar</button>
         </div>
       ) : (
         <div className="relative">
           <label className="block">
             <span className="mb-1.5 block font-semibold text-gray-800">Producto</span>
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Escribí para buscar…" className={inputCls} />
+            <input name="buscar_producto" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Escribí el nombre y tocalo en la lista…" autoComplete="off" className={inputCls} />
           </label>
+          {q.trim().length >= 2 && filtered.length === 0 && (
+            <p className="mt-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">No hay ningún producto que se llame “{q.trim()}”. Si es nuevo, primero cargalo en <a href="/admin/productos/nuevo" className="font-bold underline">Cargar producto</a> (ahí también ponés el stock inicial).</p>
+          )}
           {filtered.length > 0 && (
             <ul className="absolute inset-x-0 z-10 mt-1 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
               {filtered.map((x) => (
-                <li key={x.id}><button type="button" onClick={() => { setPid(x.id); setQ(''); setVid(''); }} className="flex w-full justify-between gap-3 px-4 py-3 text-left hover:bg-gray-50"><span className="truncate">{x.name}</span><span className="shrink-0 text-sm text-gray-500">stock {x.stock_qty}</span></button></li>
+                <li key={x.id}><button type="button" onClick={() => { setPid(x.id); setQ(''); setVid(''); }} className="flex w-full justify-between gap-3 px-4 py-3 text-left hover:bg-gray-50"><span className="truncate">{x.name}</span><span className="shrink-0 text-sm text-gray-500">{x.tracked ? `stock ${x.stock_qty}` : 'sin stock cargado'}</span></button></li>
               ))}
             </ul>
           )}

@@ -18,7 +18,7 @@ export default async function Stock({ searchParams }: { searchParams: Promise<{ 
   const value = tracked.reduce((a, p) => a + Math.max(0, p.stock_qty) * (p.price ?? 0), 0);
   const cost = tracked.reduce((a, p) => a + Math.max(0, p.stock_qty) * (p.cost ?? 0), 0);
   const alerts = tracked.filter((p) => p.active && stockState(p) !== 'ok').length;
-  const formProducts = tracked.map((p) => ({ id: p.id, name: p.name, stock_qty: p.stock_qty, price: p.price, variants: (p.variants ?? []).map((v) => ({ id: v.id, name: v.name, stock_qty: v.stock_qty })) }));
+  const formProducts = all.map((p) => ({ id: p.id, name: p.name, stock_qty: p.stock_qty, price: p.price, tracked: p.track_stock, variants: (p.variants ?? []).map((v) => ({ id: v.id, name: v.name, stock_qty: v.stock_qty })) }));
 
   return (
     <>
