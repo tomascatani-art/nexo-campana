@@ -352,11 +352,13 @@ export async function moveItemAction(table: string, id: string, direction: 'up' 
 export async function stockMovementAction(_: FormState, fd: FormData): Promise<FormState> {
   const user = await requireAdmin();
   try {
-    const productId = UUID.parse(fd.get('product_id'));
+    const rawId = String(fd.get('product_id') ?? '');
+    if (!UUID.safeParse(rawId).success) throw new FieldError('Elegí un producto de la lista: escribí parte del nombre y tocalo en las opciones que aparecen abajo.', 'buscar_producto');
+    const productId = rawId;
     const kind = z.enum(['entrada', 'venta', 'ajuste']).parse(fd.get('kind'));
     const variantId = fd.get('variant_id') ? UUID.parse(fd.get('variant_id')) : null;
     const qtyRaw = Number(String(fd.get('qty') ?? '').replace(/\./g, ''));
-    if (!Number.isInteger(qtyRaw) || (qtyRaw === 0 && kind !== 'ajuste') || Math.abs(qtyRaw) > 100000) throw new Error('Escribí una cantidad válida (número entero).');
+    if (!Number.isInteger(qtyRaw) || (qtyRaw === 0 && kind !== 'ajuste') || Math.abs(qtyRaw) > 100000) throw new FieldError('Escribí una cantidad válida (número entero).', 'qty');
     const note = text(200).parse(fd.get('note'));
     let unitPrice = parsePrice(fd.get('unit_price'));
     let msg = '';
@@ -379,7 +381,8 @@ export async function stockMovementAction(_: FormState, fd: FormData): Promise<F
       if (kind === 'ajuste' && qtyRaw < 0) throw new Error('El stock contado no puede ser negativo.');
       if (delta === 0) throw new Error('El stock ya es ese número: no hay nada que corregir.');
       if (v) await tx`update product_variants set stock_qty = stock_qty + ${delta} where id = ${variantId}`;
-      await tx`update products set stock_qty = stock_qty + ${delta}, updated_at = now() where id = ${productId}`;
+      // si el producto no controlaba stock, al registrar un movimiento se activa
+      await tx`update products set stock_qty = stock_qty + ${delta}, track_stock = true, updated_at = now() where id = ${productId}`;
       await tx`insert into stock_movements ${tx({ product_id: productId, variant_id: variantId, kind, qty: delta, unit_price: kind === 'venta' ? unitPrice : null, note, created_by: user.username })}`;
       msg = `${kind === 'entrada' ? 'Entrada' : kind === 'venta' ? 'Venta' : 'Ajuste'} registrada. Stock de "${p.name}${v ? ` (${v.name})` : ''}": ${current + delta}`;
     });

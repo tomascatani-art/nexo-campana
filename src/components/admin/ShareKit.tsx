@@ -170,13 +170,7 @@ export function ShareKit({ products, initialText, channelUrl, siteUrl, link, tem
     : 'Copiar texto, bajar foto y abrir WhatsApp';
 
   return (
-    <div className="space-y-5 pb-24 lg:pb-0">
-      <div className="fixed inset-x-3 bottom-[5.5rem] z-30 lg:hidden">
-        <button type="button" onClick={shareAll} disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#25d366] px-5 py-3.5 text-base font-bold text-white shadow-[0_10px_30px_-8px_rgba(0,0,0,.45)] transition active:scale-[.98] disabled:opacity-60">
-          {busy ? <Loader2 className="size-5 animate-spin" /> : <WhatsAppIcon className="size-5" />}
-          {shareLabel}
-        </button>
-      </div>
+    <div className="space-y-5">
       <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Tipo de imagen">
         {FORMATS.map(([v, l]) => (
           <button key={v} type="button" role="radio" aria-checked={format === v} onClick={() => setFormat(v)} className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${format === v ? 'border-ink bg-ink text-white' : 'border-gray-300 bg-white hover:border-gray-400'}`}>{l}</button>
@@ -258,6 +252,13 @@ export function ShareKit({ products, initialText, channelUrl, siteUrl, link, tem
         </div>
       </div>
       <p className="sr-only">{siteUrl}</p>
+      {/* Botón verde: queda pegado abajo mientras ves esta parte, y al final se acomoda en su lugar (no tapa nada) */}
+      <div className="sticky bottom-[5.5rem] z-30 lg:hidden">
+        <button type="button" onClick={shareAll} disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#25d366] px-5 py-3.5 text-base font-bold text-white shadow-[0_10px_30px_-8px_rgba(0,0,0,.45)] transition active:scale-[.98] disabled:opacity-60">
+          {busy ? <Loader2 className="size-5 animate-spin" /> : <WhatsAppIcon className="size-5" />}
+          {shareLabel}
+        </button>
+      </div>
     </div>
   );
 }
