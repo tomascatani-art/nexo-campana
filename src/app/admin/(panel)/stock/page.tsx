@@ -1,17 +1,16 @@
 import Link from 'next/link';
 import { Download } from 'lucide-react';
 import { getMovements, getProducts } from '@/lib/data';
-import { formatPrice, stockState, timeAgo } from '@/lib/format';
+import { formatPrice, safeIso, stockState, timeAgo } from '@/lib/format';
 import { PageHeader } from '@/components/admin/fields';
 import { StockForm } from '@/components/admin/StockForm';
+import { MovementsHistory } from '@/components/admin/MovementsHistory';
 
 export const metadata = { title: 'Stock' };
 
-const KIND_LABEL: Record<string, string> = { entrada: 'Entrada', venta: 'Venta', ajuste: 'Ajuste', devolucion: 'Devolución' };
-
 export default async function Stock({ searchParams }: { searchParams: Promise<{ f?: string; p?: string; m?: string }> }) {
   const sp = await searchParams;
-  const [all, moves] = await Promise.all([getProducts(), getMovements({ limit: 60, kind: ['entrada', 'venta', 'ajuste', 'devolucion'].includes(sp.m ?? '') ? sp.m : undefined, productId: sp.p && /^[0-9a-f-]{36}$/.test(sp.p) ? sp.p : undefined })]);
+  const [all, moves] = await Promise.all([getProducts(), getMovements({ limit: 300, productId: sp.p && /^[0-9a-f-]{36}$/.test(sp.p) ? sp.p : undefined })]);
   const tracked = all.filter((p) => p.track_stock);
   const list = sp.f === 'alertas' ? tracked.filter((p) => stockState(p) === 'out' || stockState(p) === 'low') : tracked;
   const sorted = [...list].sort((a, b) => a.stock_qty - b.stock_qty || a.name.localeCompare(b.name));
@@ -71,34 +70,11 @@ export default async function Stock({ searchParams }: { searchParams: Promise<{ 
         </section>
       </div>
 
-      <section id="movimientos" className="mt-5 rounded-2xl border border-gray-200 bg-white shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 p-4">
-          <h2 className="text-lg font-bold">Historial de movimientos{sp.p && <Link href="/admin/stock#movimientos" className="ml-2 text-sm font-semibold text-gold-deep">(ver todos)</Link>}</h2>
-          <div className="no-scrollbar flex gap-1 overflow-x-auto text-sm font-semibold">
-            {[['', 'Todos'], ['entrada', 'Entradas'], ['venta', 'Ventas'], ['ajuste', 'Ajustes'], ['devolucion', 'Devoluciones']].map(([v, l]) => (
-              <Link key={v} href={`/admin/stock?${new URLSearchParams({ ...(v ? { m: v } : {}), ...(sp.p ? { p: sp.p } : {}) })}#movimientos`} className={`shrink-0 rounded-full border px-3 py-1.5 ${(sp.m ?? '') === v ? 'border-ink bg-ink text-white' : 'border-gray-300'}`}>{l}</Link>
-            ))}
-          </div>
-        </div>
-        {moves.length === 0 ? <p className="p-6 text-center text-gray-500">Sin movimientos.</p> : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500"><tr><th className="px-4 py-2.5">Cuándo</th><th className="px-4 py-2.5">Producto</th><th className="px-4 py-2.5">Tipo</th><th className="px-4 py-2.5 text-right">Cant.</th><th className="hidden px-4 py-2.5 sm:table-cell">Detalle</th></tr></thead>
-              <tbody className="divide-y divide-gray-100">
-                {moves.map((m) => (
-                  <tr key={m.id}>
-                    <td className="whitespace-nowrap px-4 py-2.5 text-gray-500">{timeAgo(m.created_at)}</td>
-                    <td className="max-w-[12rem] truncate px-4 py-2.5 font-medium">{m.product_name}{m.variant_name && <span className="text-gray-500"> · {m.variant_name}</span>}</td>
-                    <td className="px-4 py-2.5">{KIND_LABEL[m.kind]}</td>
-                    <td className={`px-4 py-2.5 text-right font-bold tabular-nums ${m.qty > 0 ? 'text-emerald-600' : 'text-red-600'}`}>{m.qty > 0 ? '+' : ''}{m.qty}</td>
-                    <td className="hidden px-4 py-2.5 text-gray-500 sm:table-cell">{[m.unit_price ? `${formatPrice(m.unit_price)} c/u` : null, m.note, m.created_by].filter(Boolean).join(' · ')}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+      <MovementsHistory
+        moves={moves.map((m) => ({ id: m.id, ago: timeAgo(safeIso(m.created_at)), product: m.product_name, variant: m.variant_name, kind: m.kind, qty: m.qty, detail: [m.unit_price ? `${formatPrice(m.unit_price)} c/u` : null, m.note, m.created_by].filter(Boolean).join(' · ') }))}
+        initialKind={['entrada', 'venta', 'ajuste', 'devolucion'].includes(sp.m ?? '') ? sp.m : ''}
+        filteredByProduct={!!sp.p}
+      />
     </>
   );
 }
