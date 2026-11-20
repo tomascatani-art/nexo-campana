@@ -3,7 +3,8 @@ import { getPublicData, getSettings } from '@/lib/data';
 import { formatPrice, siteUrl } from '@/lib/format';
 import { PrintButton } from '@/components/site/PrintButton';
 
-export const revalidate = 3600;
+// Se arma en cada visita con los datos de la base: la publicación no necesita conectarse a la base
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata(): Promise<Metadata> {
   const s = await getSettings();

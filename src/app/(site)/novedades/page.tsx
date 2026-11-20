@@ -5,7 +5,8 @@ import { siteUrl } from '@/lib/format';
 import { ProductCard } from '@/components/site/ProductCard';
 import { WhatsAppIcon } from '@/components/icons';
 
-export const revalidate = 3600;
+// Se arma en cada visita con los datos de la base: la publicación no necesita conectarse a la base
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata(): Promise<Metadata> {
   const s = await getSettings();

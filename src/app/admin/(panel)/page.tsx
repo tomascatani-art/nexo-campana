@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, Boxes, ClipboardList, Package, PackageX, Plus, Receipt, TrendingUp, Wallet } from 'lucide-react';
 import { getDashboard, getSettings } from '@/lib/data';
-import { formatPrice, timeAgo } from '@/lib/format';
+import { formatPrice, safeIso, timeAgo } from '@/lib/format';
 import { WhatsAppIcon } from '@/components/icons';
 import { SummaryButton } from '@/components/admin/SummaryButton';
 import { UsdRate } from '@/components/admin/UsdRate';
@@ -45,7 +45,7 @@ export default async function Dashboard() {
         </div>
       </div>
 
-      {s.payment_methods.includes('dolares') && <UsdRate rate={s.usd_rate} at={s.usd_rate_at ? new Date(s.usd_rate_at).toISOString() : null} />}
+      {s.payment_methods.includes('dolares') && <UsdRate rate={s.usd_rate} at={s.usd_rate_at ? safeIso(s.usd_rate_at, null) : null} />}
 
       {missing.length > 0 && (
         <Link href="/admin/negocio" className="mb-5 flex items-start gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-900 hover:bg-amber-100">

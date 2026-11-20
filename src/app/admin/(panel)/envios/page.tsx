@@ -1,7 +1,7 @@
 import { BellRing, CircleSlash, Truck } from 'lucide-react';
 import { requireAdmin } from '@/lib/auth';
 import { getSettings, getWaitlist } from '@/lib/data';
-import { formatPrice, timeAgo } from '@/lib/format';
+import { formatPrice, safeIso, siteUrl, timeAgo } from '@/lib/format';
 import { SHIPPING_SOON_DEFAULT } from '@/lib/types';
 import { Card, Field, PageHeader, PriceField, TextArea } from '@/components/admin/fields';
 import { AdminForm, SubmitButton } from '@/components/admin/ui';
@@ -66,7 +66,7 @@ export default async function Envios() {
           <p className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center text-gray-500">Todavía nadie se anotó.</p>
         ) : (
           <ul className="space-y-2">
-            {list.map((w) => <WaitlistRow key={w.id} w={{ ...w, created_at: new Date(w.created_at).toISOString(), notified_at: w.notified_at ? new Date(w.notified_at).toISOString() : null }} ago={timeAgo(new Date(w.created_at).toISOString())} message={`¡Hola${w.name ? ` ${w.name.split(' ')[0]}` : ''}! Te escribimos de ${s.business_name}: ya hacemos envíos a domicilio 🚚${s.free_shipping_from ? ` (gratis desde ${formatPrice(s.free_shipping_from)})` : ''}. Armá tu pedido acá 👉 ${s.site_url || process.env.NEXT_PUBLIC_SITE_URL || ''}`} />)}
+            {list.map((w) => <WaitlistRow key={w.id} w={{ ...w, created_at: safeIso(w.created_at), notified_at: w.notified_at ? safeIso(w.notified_at, null) : null }} ago={timeAgo(safeIso(w.created_at))} message={`¡Hola${w.name ? ` ${w.name.split(' ')[0]}` : ''}! Te escribimos de ${s.business_name}: ya hacemos envíos a domicilio 🚚${s.free_shipping_from ? ` (gratis desde ${formatPrice(s.free_shipping_from)})` : ''}. Armá tu pedido acá 👉 ${siteUrl(s)}`} />)}
           </ul>
         )}
       </section>

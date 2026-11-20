@@ -62,8 +62,41 @@ export function waLink(number: string | null | undefined, text?: string) {
   return `https://wa.me/${n}${text ? `?text=${encodeURIComponent(text)}` : ''}`;
 }
 
+/** Devuelve la dirección (origen) si el texto es una URL web válida; si no, null. */
+function cleanUrl(v: string | null | undefined): string | null {
+  const t = (v || '').trim();
+  if (!t || /\s/.test(t)) return null;
+  try {
+    const u = new URL(/^https?:\/\//i.test(t) ? t : `https://${t}`);
+    if (!/^https?:$/.test(u.protocol) || !u.hostname.includes('.') && u.hostname !== 'localhost') return null;
+    return u.origin;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Dirección pública de la web. Usa la primera que sea válida:
+ * 1) NEXT_PUBLIC_SITE_URL (variable del hosting)  2) la guardada en la base
+ * 3) la dirección que da Vercel  4) localhost. Nunca devuelve una URL rota.
+ */
 export function siteUrl(s?: { site_url: string | null } | null) {
-  return (s?.site_url || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/$/, '');
+  return (
+    cleanUrl(process.env.NEXT_PUBLIC_SITE_URL) ||
+    cleanUrl(s?.site_url) ||
+    cleanUrl(process.env.VERCEL_PROJECT_PRODUCTION_URL) ||
+    cleanUrl(process.env.VERCEL_URL) ||
+    'http://localhost:3000'
+  );
+}
+
+/** Fecha en formato ISO sin romper nunca (si el dato es inválido, devuelve `fallback`). */
+export function safeIso(d: unknown): string;
+export function safeIso<F extends string | null>(d: unknown, fallback: F): string | F;
+export function safeIso(d: unknown, fallback: string | null = new Date(0).toISOString()): string | null {
+  if (d == null || d === '') return fallback;
+  const t = d instanceof Date ? d.getTime() : new Date(d as string | number).getTime();
+  return Number.isFinite(t) ? new Date(t).toISOString() : fallback;
 }
 
 export function slugify(s: string) {

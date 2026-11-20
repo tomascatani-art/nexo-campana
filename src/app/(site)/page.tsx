@@ -16,7 +16,8 @@ import { OpenStatus } from '@/components/site/OpenStatus';
 import { Monogram } from '@/components/site/Logo';
 import { HeroVideo } from '@/components/site/HeroVideo';
 
-export const revalidate = 300;
+// Se arma en cada visita con los datos de la base: la publicación no necesita conectarse a la base
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata(): Promise<Metadata> {
   const { settings: s } = await getPublicData();

@@ -12,7 +12,8 @@ import { ShareProduct } from '@/components/site/ShareProduct';
 import { VariantPicker } from '@/components/site/VariantPicker';
 import { TrackView } from '@/components/site/TrackView';
 
-export const revalidate = 300; // 5 min: las ofertas programadas se activan y terminan solas
+// Se arma en cada visita con los datos de la base: la publicación no necesita conectarse a la base
+export const dynamic = 'force-dynamic';
 
 type Props = { params: Promise<{ slug: string }> };
 

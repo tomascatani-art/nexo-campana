@@ -2,7 +2,8 @@ import type { MetadataRoute } from 'next';
 import { getPublicProducts, getSettings } from '@/lib/data';
 import { siteUrl } from '@/lib/format';
 
-export const revalidate = 3600;
+// Se arma en cada visita con los datos de la base: la publicación no necesita conectarse a la base
+export const dynamic = 'force-dynamic';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [s, products] = await Promise.all([getSettings(), getPublicProducts()]);

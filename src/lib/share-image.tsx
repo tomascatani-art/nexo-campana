@@ -6,6 +6,7 @@ import { ImageResponse } from 'next/og';
 import { sql } from './db';
 import { discountPct, formatPrice } from './pricing';
 import type { Settings } from './types';
+import { siteUrl } from './format';
 
 // Genera la imagen lista para publicar en el canal de WhatsApp / estados / Instagram.
 export const FORMATS = {
@@ -49,7 +50,7 @@ type P = { name: string; image_id: string | null; price: number | null; old_pric
 
 export async function productImage(p: P, s: Settings, format: Format) {
   const { width, height } = FORMATS[format];
-  const host = (s.site_url || process.env.NEXT_PUBLIC_SITE_URL || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
+  const host = siteUrl(s).replace(/^https?:\/\//, '');
   const off = discountPct(p.price, p.old_price);
   const badge = off ? `-${off}% OFF` : p.is_new && Date.now() - new Date(p.created_at).getTime() < 21 * 864e5 ? 'NUEVO INGRESO' : null;
   const logo = await imageData(s.logo_image_id, 160, 160);

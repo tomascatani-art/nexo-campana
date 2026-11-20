@@ -1,6 +1,6 @@
 import { requireAdmin } from '@/lib/auth';
 import { getCustomers, getSettings } from '@/lib/data';
-import { formatPrice, siteUrl, timeAgo } from '@/lib/format';
+import { formatPrice, safeIso, siteUrl, timeAgo } from '@/lib/format';
 import { waIntl } from '@/lib/messages';
 import { PageHeader } from '@/components/admin/fields';
 import { WhatsAppIcon } from '@/components/icons';
@@ -32,7 +32,7 @@ export default async function Clientes() {
                 <span className={`flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-bold ${i < 3 ? 'bg-gold text-ink' : 'bg-gray-100 text-gray-600'}`}>{i + 1}</span>
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold">{c.name} {c.orders >= 2 && <span className="ml-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-800">FRECUENTE</span>}</p>
-                  <p className="text-sm text-gray-500">{c.phone} · {c.orders} {c.orders === 1 ? 'pedido' : 'pedidos'} · último {timeAgo(new Date(c.last_at).toISOString())}</p>
+                  <p className="text-sm text-gray-500">{c.phone} · {c.orders} {c.orders === 1 ? 'pedido' : 'pedidos'} · último {timeAgo(safeIso(c.last_at))}</p>
                 </div>
                 <span className="font-bold tabular-nums">{formatPrice(c.total)}</span>
                 <a href={`https://wa.me/${waIntl(c.phone)}?text=${encodeURIComponent(text)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-lg bg-[#25d366] px-3 py-2 text-sm font-bold text-white"><WhatsAppIcon className="size-4" /> Mandar oferta</a>

@@ -1,6 +1,6 @@
 import { withOffer } from '@/lib/pricing';
 import { getCategories, getHours, getProducts, getSettings, getSpecialDays } from '@/lib/data';
-import { nowInArgentina } from '@/lib/format';
+import { nowInArgentina, safeIso } from '@/lib/format';
 import { surchargeText } from '@/lib/pricing';
 import { Greeting } from './Greeting';
 import { siteUrl } from '@/lib/format';
@@ -21,7 +21,7 @@ export default async function Canal() {
   };
   const products = all.filter((p) => p.active).slice(0, 60).map((p) => ({
     id: p.id, slug: p.slug, name: p.name, description: p.description, ...withOffer({ price: p.price, old_price: p.old_price, offer_price: p.offer_price, offer_from: p.offer_from, offer_until: p.offer_until }), unit_label: p.unit_label,
-    bulk_qty: p.bulk_qty, bulk_price: p.bulk_price, image_id: p.image_id, shared_at: p.shared_at, created_at: new Date(p.created_at).toISOString(),
+    bulk_qty: p.bulk_qty, bulk_price: p.bulk_price, image_id: p.image_id, shared_at: p.shared_at, created_at: safeIso(p.created_at),
   }));
   return (
     <>

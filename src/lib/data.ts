@@ -1,7 +1,7 @@
 import 'server-only';
 import { cache } from 'react';
 import { sql } from './db';
-import { stockState } from './format';
+import { safeIso, stockState } from './format';
 import { offerActive } from './pricing';
 import type { Category, Hours, Review, SpecialDay, WaitlistEntry, Movement, Order, Product, PublicProduct, Settings, Variant } from './types';
 
@@ -92,13 +92,13 @@ function toPublic(p: Product, s: Settings, top: Set<string>): PublicProduct | nu
     variant_label: hasVariants ? p.variant_label : null,
     variants: hasVariants ? vs.map((v: Variant) => ({ id: v.id, name: v.name, price: v.price, available: !p.track_stock || v.stock_qty > 0, max_qty: p.track_stock ? Math.max(0, v.stock_qty) : null })) : [],
     sold_30d: p.sold_30d ?? 0,
-    is_new: p.is_new && Date.now() - new Date(p.created_at).getTime() < 21 * 864e5,
+    is_new: p.is_new && Date.now() - new Date(safeIso(p.created_at)).getTime() < 21 * 864e5,
     featured: p.featured,
     best_seller: top.has(p.id),
     availability: st === 'out' ? 'out' : st === 'low' && s.show_stock_left ? 'low' : 'ok',
     max_qty: p.track_stock ? Math.max(0, p.stock_qty) : null,
-    created_at: new Date(p.created_at).toISOString(),
-    offer_until: offer && p.offer_until ? new Date(p.offer_until).toISOString() : null,
+    created_at: safeIso(p.created_at),
+    offer_until: offer && p.offer_until ? safeIso(p.offer_until, null) : null,
   };
 }
 
