@@ -18,16 +18,35 @@ export function AdminForm({
 }) {
   const [state, formAction] = useActionState(action, undefined);
   const ref = useRef<HTMLFormElement>(null);
+  const sent = useRef<[string, FormDataEntryValue][] | null>(null);
   const router = useRouter();
   useEffect(() => {
-    if (state?.error) ref.current?.querySelector('[role=alert]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const form = ref.current;
+    // Si hubo un error, React vacía el formulario: le volvemos a poner lo que había escrito
+    if (state?.error && form && sent.current) restoreForm(form, sent.current);
+    form?.querySelectorAll('[data-field-error]').forEach((n) => n.remove());
+    form?.querySelectorAll('.field-error-ring').forEach((n) => n.classList.remove('field-error-ring', 'ring-2', 'ring-red-500'));
+    if (state?.error) {
+      // Si sabemos qué campo falta o está mal, lo marcamos en rojo, ponemos el aviso abajo y vamos ahí
+      const input = state.field ? form?.querySelector<HTMLElement>(`[name="${CSS.escape(state.field)}"]:not([type=hidden])`) : null;
+      if (input) {
+        input.classList.add('field-error-ring', 'ring-2', 'ring-red-500');
+        const note = document.createElement('p');
+        note.dataset.fieldError = '1';
+        note.className = 'mt-2 text-sm font-semibold text-red-600';
+        note.textContent = `⚠️ ${state.error}`;
+        input.insertAdjacentElement('afterend', note);
+        input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => input.focus({ preventScroll: true }), 400);
+      } else form?.querySelector('[role=alert]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
     if (state?.ok) {
       if (resetOnSuccess) ref.current?.reset();
       router.refresh();
     }
   }, [state, resetOnSuccess, router]);
   return (
-    <form ref={ref} action={formAction} className={className}>
+    <form ref={ref} action={formAction} onSubmit={(e) => { sent.current = [...new FormData(e.currentTarget).entries()]; }} className={className}>
       {state?.error && (
         <div role="alert" className="mb-5 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-red-800">
           <CircleAlert className="mt-0.5 size-5 shrink-0" /> <p>{state.error}</p>
@@ -37,6 +56,29 @@ export function AdminForm({
       {children}
     </form>
   );
+}
+
+/** Vuelve a cargar en el formulario los valores que se enviaron (texto, números, selects y casillas). */
+function restoreForm(form: HTMLFormElement, entries: [string, FormDataEntryValue][]) {
+  const byName = new Map<string, string[]>();
+  for (const [k, v] of entries) if (typeof v === 'string') byName.set(k, [...(byName.get(k) ?? []), v]);
+  const seen = new Map<string, number>();
+  for (const el of Array.from(form.elements)) {
+    const input = el as HTMLInputElement;
+    if (!input.name || input.type === 'file' || input.type === 'submit' || input.type === 'button') continue;
+    const vals = byName.get(input.name) ?? [];
+    if (input.type === 'checkbox' || input.type === 'radio') {
+      input.checked = vals.includes(input.value || 'on');
+      continue;
+    }
+    const i = seen.get(input.name) ?? 0;
+    seen.set(input.name, i + 1);
+    if (i < vals.length && input.value !== vals[i]) {
+      const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : el instanceof HTMLSelectElement ? HTMLSelectElement.prototype : HTMLInputElement.prototype;
+      Object.getOwnPropertyDescriptor(proto, 'value')?.set?.call(el, vals[i]);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  }
 }
 
 export function Flash({ message }: { message: string }) {

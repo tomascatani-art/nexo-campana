@@ -8,7 +8,12 @@ import { changePassword, login, logout, requireAdmin } from '@/lib/auth';
 import { cleanupOrphanImages, storeImage } from '@/lib/images';
 import { slugify } from '@/lib/format';
 
-export type FormState = { ok?: boolean; error?: string; message?: string } | undefined;
+export type FormState = { ok?: boolean; error?: string; message?: string; field?: string } | undefined;
+
+/** Error con el nombre del campo a marcar en el formulario. */
+class FieldError extends Error {
+  constructor(message: string, public field: string) { super(message); }
+}
 
 const UUID = z.string().uuid();
 
@@ -41,7 +46,16 @@ const optInt = (label: string, min = 0, max = 1_000_000) =>
 
 function fail(e: unknown): FormState {
   if (e && typeof e === 'object' && 'digest' in e && String((e as { digest: unknown }).digest).startsWith('NEXT_REDIRECT')) throw e;
-  if (e instanceof z.ZodError) return { error: e.issues.map((i) => i.message).join(' · ') };
+  if (e instanceof z.ZodError) {
+    const first = e.issues[0]?.path?.[0];
+    return { error: e.issues.map((i) => i.message).join(' · '), field: typeof first === 'string' ? first : undefined };
+  }
+  if (e instanceof FieldError) return { error: e.message, field: e.field };
+  // Errores técnicos (base de datos, conexión): mensaje claro en vez del código
+  if (e && typeof e === 'object' && ('code' in e || 'severity' in e || (e instanceof Error && /^[A-Z_]{6,}\b/.test(e.message)))) {
+    console.error(e);
+    return { error: 'No se pudo guardar por un problema de conexión. Esperá unos segundos y tocá Guardar de nuevo. Si sigue pasando, avisale a quien te hizo la web.' };
+  }
   return { error: e instanceof Error ? e.message : 'Ocurrió un error. Intentá de nuevo.' };
 }
 
@@ -174,24 +188,24 @@ export async function saveProductAction(_: FormState, fd: FormData): Promise<For
     const old_price = parsePrice(fd.get('old_price'));
     const bulk_price = parsePrice(fd.get('bulk_price'));
     const cost = parsePrice(fd.get('cost'));
-    if (old_price != null && price != null && old_price <= price) throw new Error('El "precio anterior" tiene que ser mayor al precio actual (es el que aparece tachado).');
-    if ((base.bulk_qty == null) !== (bulk_price == null)) throw new Error('Para el precio por cantidad completá las dos cosas: desde cuántas unidades y a qué precio.');
-    if (bulk_price != null && price != null && bulk_price >= price) throw new Error('El precio por cantidad tiene que ser menor al precio por unidad.');
+    if (old_price != null && price != null && old_price <= price) throw new FieldError('El "precio anterior" tiene que ser mayor al precio actual (es el que aparece tachado).', 'old_price');
+    if ((base.bulk_qty == null) !== (bulk_price == null)) throw new FieldError('Para el precio por cantidad completá las dos cosas: desde cuántas unidades y a qué precio.', base.bulk_qty == null ? 'bulk_qty' : 'bulk_price');
+    if (bulk_price != null && price != null && bulk_price >= price) throw new FieldError('El precio por cantidad tiene que ser menor al precio por unidad.', 'bulk_price');
     // Oferta programada (fechas en hora de Argentina)
     const offer_price = parsePrice(fd.get('offer_price'));
-    const arDate = (k: string) => { const v = String(fd.get(k) ?? '').trim(); if (!v) return null; if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(v)) throw new Error('Revisá las fechas de la oferta.'); return new Date(`${v}:00-03:00`); };
+    const arDate = (k: string) => { const v = String(fd.get(k) ?? '').trim(); if (!v) return null; if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(v)) throw new FieldError('Revisá las fechas de la oferta.', k); return new Date(`${v}:00-03:00`); };
     const offer_from = offer_price != null ? arDate('offer_from') : null;
     const offer_until = offer_price != null ? arDate('offer_until') : null;
-    if (offer_price != null && price == null) throw new Error('Para programar una oferta el producto tiene que tener precio.');
-    if (offer_price != null && price != null && offer_price >= price) throw new Error('El precio de oferta tiene que ser menor al precio normal.');
-    if (offer_price != null && !offer_until) throw new Error('Poné hasta cuándo dura la oferta.');
-    if (offer_from && offer_until && offer_until <= offer_from) throw new Error('La oferta tiene que terminar después de empezar.');
+    if (offer_price != null && price == null) throw new FieldError('Para programar una oferta el producto tiene que tener precio.', 'price');
+    if (offer_price != null && price != null && offer_price >= price) throw new FieldError('El precio de oferta tiene que ser menor al precio normal.', 'offer_price');
+    if (offer_price != null && !offer_until) throw new FieldError('Poné hasta cuándo dura la oferta.', 'offer_until');
+    if (offer_from && offer_until && offer_until <= offer_from) throw new FieldError('La oferta tiene que terminar después de empezar.', 'offer_until');
     const stockRaw = String(fd.get('stock_qty') ?? '').trim();
     const stock = stockRaw === '' ? null : Number(stockRaw.replace(/\./g, ''));
-    if (stock != null && (!Number.isInteger(stock) || stock < 0 || stock > 1_000_000)) throw new Error('El stock tiene que ser un número entero (0 o más).');
+    if (stock != null && (!Number.isInteger(stock) || stock < 0 || stock > 1_000_000)) throw new FieldError('El stock tiene que ser un número entero (0 o más).', 'stock_qty');
 
     const variants = base.variant_label ? parseVariants(fd) : [];
-    if (base.variant_label && variants.length === 0) throw new Error(`Agregá al menos una opción de "${base.variant_label}", o dejá ese campo vacío si el producto no tiene variantes.`);
+    if (base.variant_label && variants.length === 0) throw new FieldError(`Agregá al menos una opción de "${base.variant_label}", o dejá ese campo vacío si el producto no tiene variantes.`, 'variant_label');
     const data = { ...base, variant_label: variants.length ? base.variant_label : null, min_stock: base.min_stock ?? 0, gallery, price, old_price, bulk_price, cost, offer_price, offer_from, offer_until };
     if (id) {
       UUID.parse(id);

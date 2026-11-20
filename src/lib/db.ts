@@ -47,4 +47,32 @@ export const sql =
     },
   });
 
+/**
+ * Transacciones: como cada conexión hace una consulta a la vez (max_pipeline 0), el sql.begin
+ * original de postgres.js no reconoce la conexión y tira "UNSAFE_TRANSACTION". Esta versión
+ * reserva una conexión, hace BEGIN / COMMIT (o ROLLBACK si algo falla) y la libera.
+ */
+if (!(sql as unknown as { __safeBegin?: boolean }).__safeBegin) {
+  const safeBegin = async (...args: unknown[]) => {
+    const fn = args[args.length - 1] as (tx: unknown) => unknown;
+    const mode = args.length > 1 && typeof args[0] === 'string' ? ` ${args[0].replace(/[^a-z ]/gi, '')}` : '';
+    const tx = await sql.reserve();
+    try {
+      await tx.unsafe(`begin${mode}`);
+      try {
+        const out = fn(tx);
+        const result = await (Array.isArray(out) ? Promise.all(out) : out);
+        await tx`commit`;
+        return result;
+      } catch (e) {
+        await tx`rollback`.catch(() => {});
+        throw e;
+      }
+    } finally {
+      tx.release();
+    }
+  };
+  Object.assign(sql, { begin: safeBegin, __safeBegin: true });
+}
+
 if (process.env.NODE_ENV !== 'production') globalForDb.__sql = sql;
