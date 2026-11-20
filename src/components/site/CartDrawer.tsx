@@ -1,6 +1,7 @@
 'use client';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, CircleAlert, CircleCheck, Copy, Info, Loader2, Minus, Plus, ShoppingBag, Store, Trash2, Truck, X } from 'lucide-react';
 import { formatPrice, paymentAdjust, shippingFor } from '@/lib/pricing';
@@ -24,7 +25,8 @@ export type CheckoutConfig = {
 type Form = { name: string; phone: string; delivery: 'retiro' | 'envio'; address: string; zone: string; payment: string; note: string };
 
 export function CartDrawer({ cfg }: { cfg: CheckoutConfig }) {
-  const { lines, total, count, hasUnpriced, set, clear, open, setOpen } = useList();
+  const { lines, total, count, hasUnpriced, set, clear, open, setOpen, gone, dropGone } = useList();
+  const router = useRouter();
   const [step, setStep] = useState<'cart' | 'datos' | 'listo'>('cart');
   const [f, setF] = useState<Form>({ name: '', phone: '', delivery: cfg.pickup || !cfg.shipping ? 'retiro' : 'envio', address: '', zone: '', payment: cfg.payments[0] ?? '', note: '' });
   const [busy, setBusy] = useState(false);
@@ -72,6 +74,8 @@ export function CartDrawer({ cfg }: { cfg: CheckoutConfig }) {
     if (!r.ok) {
       win?.close();
       setErr({ text: r.error, field: 'field' in r ? r.field : undefined });
+      // trae el stock actualizado: el carrito saca lo agotado y ajusta las cantidades solo
+      router.refresh();
       return;
     }
     setDone({ code: r.code, message: r.message, holdHours: r.holdHours, deposit: r.deposit });
@@ -116,6 +120,7 @@ export function CartDrawer({ cfg }: { cfg: CheckoutConfig }) {
           </div>
         ) : lines.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
+            {gone.length > 0 && <p role="status" data-testid="cart-gone" className="mb-6 text-left flex gap-2 rounded-xl border border-amber-400/40 bg-amber-400/10 p-3 text-sm font-semibold text-amber-200"><CircleAlert className="mt-0.5 size-4 shrink-0" /> <span className="flex-1">Se quedó sin stock y lo sacamos del carrito: {gone.join(', ')}.</span> <button type="button" onClick={dropGone} className="shrink-0 underline">Entendido</button></p>}
             <div className="flex size-20 items-center justify-center rounded-full bg-gold/10 text-gold"><ShoppingBag className="size-9" /></div>
             <p className="mt-5 font-display text-xl font-bold">Tu carrito está vacío</p>
             <p className="mt-2 text-mist">Sumá productos y vas a ver el total de tu compra al instante, como una lista del súper.</p>
@@ -123,6 +128,7 @@ export function CartDrawer({ cfg }: { cfg: CheckoutConfig }) {
           </div>
         ) : step === 'cart' ? (
           <>
+            {gone.length > 0 && <p role="status" data-testid="cart-gone" className="mx-5 mt-4 flex gap-2 rounded-xl border border-amber-400/40 bg-amber-400/10 p-3 text-sm font-semibold text-amber-200"><CircleAlert className="mt-0.5 size-4 shrink-0" /> <span className="flex-1">Se quedó sin stock y lo sacamos del carrito: {gone.join(', ')}.</span> <button type="button" onClick={dropGone} className="shrink-0 underline">Entendido</button></p>}
             <ul className="flex-1 divide-y divide-white/10 overflow-y-auto px-5">
               {lines.map((l) => (
                 <li key={l.key} className="flex gap-3 py-4">

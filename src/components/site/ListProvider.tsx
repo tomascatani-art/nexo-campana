@@ -19,6 +19,8 @@ type Ctx = {
   open: boolean;
   setOpen: (v: boolean) => void;
   lastAdded: { id: string; name: string; at: number } | null;
+  gone: string[];
+  dropGone: () => void;
 };
 
 const CartCtx = createContext<Ctx | null>(null);
@@ -74,11 +76,22 @@ export function ListProvider({ products, children }: { products: PublicProduct[]
     const variant = l.v ? product.variants.find((x) => x.id === l.v) ?? null : null;
     if (l.v && (!variant || !variant.available)) return [];
     if (!l.v && product.variants.length) return [];
+    // si el stock bajó desde que lo agregó, la cantidad se ajusta sola a lo que hay
+    const max = variant ? variant.max_qty : product.max_qty;
+    if (max != null && l.qty > max) l = { ...l, qty: max };
     const unit = unitPriceFor(product, l.qty, variant?.price);
     return [{ ...l, key: k(l.id, l.v), product, variant, unit, subtotal: unit == null ? null : unit * l.qty, bulk: unit != null && product.price != null && unit < product.price && !variant?.price, max: variant ? variant.max_qty : product.max_qty }];
   });
+  // productos que estaban en el carrito y se quedaron sin stock (para avisarle al cliente)
+  const gone = raw.flatMap((l) => {
+    const product = byId.get(l.id);
+    if (!product) return [];
+    const variant = l.v ? product.variants.find((x) => x.id === l.v) : null;
+    return product.availability === 'out' || (l.v && variant && !variant.available) ? [product.name + (variant ? ` (${variant.name})` : '')] : [];
+  });
   const value: Ctx = {
-    lines,
+    lines, gone,
+    dropGone: () => persist(raw.filter((l) => { const p = byId.get(l.id); if (!p) return false; const v = l.v ? p.variants.find((x) => x.id === l.v) : null; return !(p.availability === 'out' || (l.v && v && !v.available)); })),
     count: lines.reduce((a, l) => a + l.qty, 0),
     total: lines.reduce((a, l) => a + (l.subtotal ?? 0), 0),
     hasUnpriced: lines.some((l) => l.unit == null),

@@ -79,6 +79,25 @@ export async function applyOrderStatus(tx: Tx, id: string, next: string, by: str
   let warn = '';
   const apply = DISCOUNTS.includes(next) && !o.stock_applied;
   const revert = RETURNS.includes(next) && o.stock_applied;
+  if (apply) {
+    // No se confirma un pedido si no alcanza el stock (los pedidos pendientes no reservan stock,
+    // así que dos clientes pueden pedir la última unidad: el segundo no se puede confirmar).
+    const need = new Map<string, { product_id: string; variant_id: string | null; qty: number }>();
+    for (const it of o.items) {
+      const key = `${it.product_id}:${it.variant_id ?? ''}`;
+      const cur = need.get(key);
+      need.set(key, { product_id: it.product_id, variant_id: it.variant_id, qty: (cur?.qty ?? 0) + it.qty });
+    }
+    const short: string[] = [];
+    for (const n of need.values()) {
+      const [p] = await tx<{ name: string; track_stock: boolean; stock: number; vname: string | null }[]>`
+        select p.name, p.track_stock, coalesce(v.stock_qty, p.stock_qty) as stock, v.name as vname
+        from products p left join product_variants v on v.id = ${n.variant_id} and v.product_id = p.id
+        where p.id = ${n.product_id}`;
+      if (p?.track_stock && p.stock < n.qty) short.push(`${p.name}${p.vname ? ` (${p.vname})` : ''}: pide ${n.qty} y hay ${Math.max(p.stock, 0)}`);
+    }
+    if (short.length) throw new Error(`No alcanza el stock para confirmar este pedido. ${short.join('. ')}. Si te llegó mercadería, cargala en Stock → Entrada; si no, avisale al cliente y cancelá el pedido.`);
+  }
   if (apply || revert) {
     const sign = apply ? -1 : 1;
     for (const it of o.items) {

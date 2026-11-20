@@ -1,10 +1,11 @@
 'use client';
 import Image from 'next/image';
 import { useState } from 'react';
+import { ImageOff } from 'lucide-react';
 
 export function Gallery({ ids, alt, out }: { ids: string[]; alt: string; out?: boolean }) {
   const [i, setI] = useState(0);
-  if (!ids.length) return <div className="aspect-square rounded-3xl bg-white" />;
+  if (!ids.length) return <div className="flex aspect-square flex-col items-center justify-center gap-2 rounded-3xl bg-white text-gray-300"><ImageOff className="size-14" /><span className="text-sm font-semibold text-gray-400">Foto próximamente</span></div>;
   return (
     <div>
       <div className="relative aspect-square overflow-hidden rounded-3xl bg-white">

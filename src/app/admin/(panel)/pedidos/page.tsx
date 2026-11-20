@@ -22,7 +22,8 @@ const TABS = [
 
 export default async function Pedidos({ searchParams }: { searchParams: Promise<{ e?: string; q?: string }> }) {
   const sp = await searchParams;
-  const tab = TABS.some(([v]) => v === sp.e) ? sp.e! : 'activos';
+  // al buscar (n° de pedido, nombre o teléfono) se busca en todos los pedidos, también vencidos y cancelados
+  const tab = TABS.some(([v]) => v === sp.e) ? sp.e! : sp.q ? 'todos' : 'activos';
   await expireDueOrders();
   const [orders, noShows] = await Promise.all([getOrders({ status: tab === 'todos' ? undefined : tab, search: sp.q }), getNoShows().catch(() => [])]);
   const flagged = new Map(noShows.map((n) => [n.phone_key, n.times]));
@@ -30,7 +31,6 @@ export default async function Pedidos({ searchParams }: { searchParams: Promise<
     <>
       <PageHeader title="Pedidos" description="Los pedidos que hacen los clientes desde la web. Al confirmar uno, el stock se descuenta solo. Los que no se retiran a tiempo pasan solos a “Vencidos”." />
       <form className="mb-3 flex gap-2" action="/admin/pedidos">
-        <input type="hidden" name="e" value={tab} />
         <label className="relative flex-1">
           <span className="sr-only">Buscar pedido</span>
           <Search className="pointer-events-none absolute left-3.5 top-1/2 size-5 -translate-y-1/2 text-gray-400" />
