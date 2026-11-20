@@ -1,5 +1,5 @@
 import { sql } from '@/lib/db';
-import { getCategories, getHours, getPublishedReviews, getPublicProducts, getSettings, getSpecialDays } from '@/lib/data';
+import { getPublicData, getCategories, getHours, getPublishedReviews, getPublicProducts, getSettings, getSpecialDays } from '@/lib/data';
 import { siteUrl } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
@@ -51,11 +51,21 @@ export async function GET(req: Request) {
     }
   }
   lines.push('');
+  {
+    const t = Date.now();
+    try {
+      await Promise.race([getPublicData(), new Promise<never>((_, rej) => setTimeout(() => rej(new Error('no respondió en 6 segundos')), 6000))]);
+      lines.push(`Todo junto (como el inicio): ok (${Date.now() - t} ms)`);
+    } catch (e) {
+      lines.push(`Todo junto (como el inicio): ERROR (${Date.now() - t} ms) · ${String((e as Error).message || e).slice(0, 300)}`);
+    }
+  }
+  lines.push('');
   const origin = new URL(req.url).origin;
   for (const path of ['/', '/novedades']) {
     const t = Date.now();
     try {
-      const r = await fetch(origin + path, { cache: 'no-store', signal: AbortSignal.timeout(20000), headers: { 'user-agent': 'nexo-estado' } });
+      const r = await fetch(origin + path, { cache: 'no-store', signal: AbortSignal.timeout(6000), headers: { 'user-agent': 'nexo-estado' } });
       const body = await r.text();
       const hint = body.match(/<h1[^>]*>([^<]{0,80})/)?.[1] ?? '';
       lines.push(`Página ${path}: ${r.status} (${Date.now() - t} ms · ${Math.round(body.length / 1024)} KB)${hint ? ' · ' + hint : ''}`);
