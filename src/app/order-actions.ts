@@ -124,7 +124,8 @@ export async function submitOrderAction(raw: unknown): Promise<OrderResult> {
       d.delivery === 'envio' ? `🚚 Envío a domicilio${zone ? ` · ${zone.name}` : ''}\n📍 ${d.address}` : '🏬 Retiro en el local',
       payment ? `💳 Pago: ${PAYMENT_METHODS[payment] ?? payment}` : '',
       d.note ? `📝 ${d.note}` : '',
-      hold > 0 ? `\n⏳ Sé que el pedido se guarda ${hold} horas: si no lo retiro, se cancela solo.` : '',
+      '',
+      hold > 0 ? `⏳ Sé que el pedido se guarda ${hold} horas: si no lo retiro, se cancela solo.` : '',
       deposit ? `💰 Para reservarlo dejo una seña del ${deposit.pct}% (${formatPrice(deposit.amount)}). ¿Me pasan los datos para pagarla?` : '',
     ].filter((l, i, a) => !(l === '' && (a[i - 1] === '' || i === a.length - 1))).join('\n').trim();
     return { ok: true, code, message: msg, total, holdHours: hold, deposit };
