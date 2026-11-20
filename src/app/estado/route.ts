@@ -1,4 +1,5 @@
 import { sql } from '@/lib/db';
+import { getCategories, getHours, getPublishedReviews, getPublicProducts, getSettings, getSpecialDays } from '@/lib/data';
 import { siteUrl } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
@@ -34,6 +35,20 @@ export async function GET() {
     const msg = String(err.message || e).replace(/postgres(ql)?:\/\/[^\s]+/g, '[oculto]');
     lines.push(`Base de datos: ERROR ✘ después de ${Date.now() - t0} ms`);
     lines.push(`Detalle: ${err.code ? err.code + ' · ' : ''}${msg}`);
+  }
+  lines.push('');
+  const checks: [string, () => Promise<unknown>][] = [
+    ['Datos del negocio', getSettings], ['Horarios', getHours], ['Categorías', () => getCategories({ onlyActive: true })],
+    ['Productos', getPublicProducts], ['Días especiales', getSpecialDays], ['Opiniones', getPublishedReviews],
+  ];
+  for (const [name, fn] of checks) {
+    const t = Date.now();
+    try {
+      const r = await Promise.race([fn(), new Promise<never>((_, rej) => setTimeout(() => rej(new Error('no respondió en 8 segundos')), 8000))]);
+      lines.push(`${name}: ok (${Date.now() - t} ms${Array.isArray(r) ? ` · ${r.length}` : ''})`);
+    } catch (e) {
+      lines.push(`${name}: ERROR (${Date.now() - t} ms) · ${String((e as Error).message || e).slice(0, 300)}`);
+    }
   }
   return new Response(lines.join('\n'), { headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } });
 }
