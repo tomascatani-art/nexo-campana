@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import type postgres from 'postgres';
 import { sql } from '@/lib/db';
-import { changePassword, login, logout, requireAdmin } from '@/lib/auth';
+import { changePassword, login, logout, passwordProblem, requireAdmin } from '@/lib/auth';
 import { cleanupOrphanImages, storeImage } from '@/lib/images';
 import { slugify } from '@/lib/format';
 
@@ -82,12 +82,11 @@ export async function changePasswordAction(_: FormState, fd: FormData): Promise<
   const user = await requireAdmin();
   const current = String(fd.get('current') ?? '');
   const next = String(fd.get('next') ?? '');
-  if (next.length < 8) return { error: 'La nueva contraseña debe tener al menos 8 caracteres.' };
-  if (!/[A-Za-z]/.test(next) || !/\d/.test(next)) return { error: 'Usá letras y números en la nueva contraseña.' };
-  if (next !== String(fd.get('confirm') ?? '')) return { error: 'Las contraseñas nuevas no coinciden.' };
+  const problem = passwordProblem(next, String(fd.get('confirm') ?? ''));
+  if (problem) return { error: problem, field: 'next' };
   const r = await changePassword(user, current, next);
-  if (!r.ok) return { error: r.error };
-  return { ok: true, message: 'Contraseña actualizada. Se cerró la sesión en los demás dispositivos.' };
+  if (!r.ok) return { error: r.error, field: 'current' };
+  return { ok: true, message: user.has_password ? 'Contraseña actualizada. Se cerró la sesión en los demás dispositivos.' : 'Contraseña creada. Ahora también podés entrar con usuario y contraseña.' };
 }
 
 // ------------------------------------------------------------------ imágenes

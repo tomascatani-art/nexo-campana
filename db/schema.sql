@@ -307,3 +307,26 @@ alter table site_settings add column if not exists usd_rate_at timestamptz;
 alter table site_settings add column if not exists greeting_template text; -- plantilla "Saludo del día" para el canal
 alter table orders add column if not exists surcharge numeric(12,2);
 alter table orders add column if not exists usd_rate numeric(12,2);
+
+-- Cuenta propia del dueño: link de activación, ingreso con Google y código de recuperación
+-- (lo mismo se aplica solo al abrir el panel: ver src/lib/auth-schema.ts)
+alter table admin_users alter column password_hash drop not null;  -- vacío = entra solo con Google
+alter table admin_users add column if not exists google_email text;
+alter table admin_users add column if not exists recovery_hash text;
+create unique index if not exists admin_users_google_email on admin_users (lower(google_email));
+create table if not exists admin_invites (
+  id          uuid primary key default gen_random_uuid(),
+  token_hash  text not null unique,
+  created_by  text,
+  created_at  timestamptz not null default now(),
+  expires_at  timestamptz not null,
+  used_at     timestamptz
+);
+alter table admin_invites enable row level security;
+create table if not exists auth_config (
+  id                   int primary key default 1 check (id = 1),
+  google_client_id     text,
+  google_client_secret text,
+  updated_at           timestamptz not null default now()
+);
+alter table auth_config enable row level security;

@@ -27,7 +27,7 @@ const NAV = [
   { href: '/admin/horarios', label: 'Horarios y feriados', icon: Clock },
   { href: '/admin/carteles', label: 'Carteles de precio', icon: Tag },
   { href: '/admin/cartel', label: 'Cartel con QR', icon: QrCode },
-  { href: '/admin/cuenta', label: 'Mi contraseña', icon: KeyRound },
+  { href: '/admin/cuenta', label: 'Mi cuenta', icon: KeyRound },
   { href: '/admin/ayuda', label: 'Ayuda', icon: HelpCircle },
 ];
 
