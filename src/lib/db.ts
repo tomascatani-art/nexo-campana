@@ -1,5 +1,6 @@
 import 'server-only';
 import postgres from 'postgres';
+import { trace } from './trace';
 
 const url = process.env.DATABASE_URL;
 if (!url) throw new Error('Falta la variable de entorno DATABASE_URL');
@@ -38,6 +39,7 @@ export const sql =
     connect_timeout: 10,
     ssl: isLocal ? false : 'require',
     onnotice: () => {},
+    debug: process.env.VERCEL ? (conn: number, q: string) => trace(`sql#${conn}: ${q.replace(/\s+/g, ' ').slice(0, 50)}`) : undefined,
     types: {
       // date, timestamp, timestamptz
       fecha: { to: 1184, from: [1082, 1114, 1184], serialize: (x: Date | string) => (x instanceof Date ? x.toISOString() : x), parse: parsePgDate },
