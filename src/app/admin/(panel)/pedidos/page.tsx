@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { Search, Store, Truck } from 'lucide-react';
 import { getOrders } from '@/lib/data';
-import { formatPrice, timeAgo } from '@/lib/format';
+import { formatPrice, timeAgo, timeLeft } from '@/lib/format';
+import { ACTIVE_STATUSES, expireDueOrders, getNoShows, phoneKey } from '@/lib/orders';
 import { PageHeader } from '@/components/admin/fields';
 import { StatusBadge } from '@/components/admin/OrderStatus';
 
@@ -14,6 +15,7 @@ const TABS = [
   ['preparando', 'Preparando'],
   ['enviado', 'Enviados'],
   ['entregado', 'Entregados'],
+  ['vencido', 'Vencidos'],
   ['cancelado', 'Cancelados'],
   ['todos', 'Todos'],
 ] as const;
@@ -21,10 +23,12 @@ const TABS = [
 export default async function Pedidos({ searchParams }: { searchParams: Promise<{ e?: string; q?: string }> }) {
   const sp = await searchParams;
   const tab = TABS.some(([v]) => v === sp.e) ? sp.e! : 'activos';
-  const orders = await getOrders({ status: tab === 'todos' ? undefined : tab, search: sp.q });
+  await expireDueOrders();
+  const [orders, noShows] = await Promise.all([getOrders({ status: tab === 'todos' ? undefined : tab, search: sp.q }), getNoShows().catch(() => [])]);
+  const flagged = new Map(noShows.map((n) => [n.phone_key, n.times]));
   return (
     <>
-      <PageHeader title="Pedidos" description="Los pedidos que hacen los clientes desde la web. Al confirmar uno, el stock se descuenta solo." />
+      <PageHeader title="Pedidos" description="Los pedidos que hacen los clientes desde la web. Al confirmar uno, el stock se descuenta solo. Los que no se retiran a tiempo pasan solos a “Vencidos”." />
       <form className="mb-3 flex gap-2" action="/admin/pedidos">
         <input type="hidden" name="e" value={tab} />
         <label className="relative flex-1">
@@ -51,6 +55,8 @@ export default async function Pedidos({ searchParams }: { searchParams: Promise<
                   <div className="min-w-0">
                     <p className="truncate font-bold">{o.customer_name}</p>
                     <p className="text-sm text-gray-500">{timeAgo(o.created_at)}</p>
+                    {o.delivery_method === 'retiro' && ACTIVE_STATUSES.includes(o.status) && timeLeft(o.expires_at) && <p className="text-xs font-semibold text-amber-700">⏳ Para retirar: {timeLeft(o.expires_at)}</p>}
+                    {(flagged.has(phoneKey(o.customer_phone)) || o.needs_deposit) && ACTIVE_STATUSES.includes(o.status) && <p className="mt-0.5 inline-block rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700">⚠️ No retiró antes · pedir seña</p>}
                   </div>
                 </div>
                 <p className="min-w-0 flex-1 truncate text-sm text-gray-600">{o.items.map((i) => `${i.qty}× ${i.name}`).join(', ')}</p>

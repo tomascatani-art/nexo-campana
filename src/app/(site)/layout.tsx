@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { after } from 'next/server';
+import { expireDueOrders } from '@/lib/orders';
 import { MapPin } from 'lucide-react';
 import { getPublicData } from '@/lib/data';
 import { groupHours, specialDayLabel, specialText, upcomingSpecials, waLink } from '@/lib/format';
@@ -13,6 +15,8 @@ import { Interactions } from '@/components/site/Interactions';
 
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
   const { settings: s, hours, specials, products, categories } = await getPublicData();
+  // Después de mandar la página: vence los pedidos que no retiraron (devuelve su stock). Nunca frena la web.
+  after(() => expireDueOrders().catch(() => {}));
   const soon = upcomingSpecials(specials, 10).slice(0, 2);
   const notice = soon.length ? `📅 ${soon.map((d) => `${specialDayLabel(d.day)} (${d.reason}): ${specialText(d)}`).join(' · ')}` : null;
   const wa = waLink(s.whatsapp_number, `Hola ${s.business_name}! Quería hacer una consulta.`);
@@ -73,6 +77,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
         cashPct: s.payment_methods?.includes('efectivo') && s.cash_discount_pct ? s.cash_discount_pct : null,
         transferPct: s.transfer_surcharge_pct, catPct: Object.fromEntries(categories.filter((c) => c.transfer_surcharge_pct != null).map((c) => [c.slug, c.transfer_surcharge_pct!])),
         usdRate: s.usd_rate, transferNotice: s.transfer_notice, refundPolicy: s.refund_policy,
+        holdHours: s.order_hold_hours,
       }} />
       <FloatingBar wa={wa} />
       <Interactions />

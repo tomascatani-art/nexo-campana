@@ -3,24 +3,28 @@ import { notFound } from 'next/navigation';
 import { ArrowLeft, MapPin, Phone, Store, Truck } from 'lucide-react';
 import { getHours, getOrder, getSettings } from '@/lib/data';
 import { DEFAULT_REPLIES, fillTemplate, statusMessage } from '@/lib/messages';
-import { formatPrice, siteUrl, timeAgo } from '@/lib/format';
+import { formatPrice, siteUrl, timeAgo, timeLeft } from '@/lib/format';
+import { expireDueOrders, findNoShow } from '@/lib/orders';
 import { PAYMENT_METHODS } from '@/lib/types';
-import { OrderNote, STATUS_UI, StatusBadge, StatusControls } from '@/components/admin/OrderStatus';
+import { OrderNote, PickupControls, STATUS_UI, StatusBadge, StatusControls } from '@/components/admin/OrderStatus';
 import { WhatsAppIcon } from '@/components/icons';
 
 export const metadata = { title: 'Pedido' };
 
 export default async function Pedido({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  await expireDueOrders();
   const [o, s, hours] = await Promise.all([getOrder(id).catch(() => null), getSettings(), getHours()]);
   if (!o) notFound();
+  const flagged = await findNoShow(o.customer_phone).catch(() => null);
+  const deadline = o.expires_at ? new Date(o.expires_at).toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', weekday: 'short', day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }) : null;
   const phone = o.customer_phone.replace(/\D/g, '');
   const intl = phone.startsWith('54') ? phone : `549${phone.replace(/^0/, '').replace(/^(\d{2,4})15/, '$1')}`;
   const msg = `Hola ${o.customer_name.split(' ')[0]}! Te escribimos de ${s.business_name} por tu pedido #${o.code}. `;
   const site = siteUrl(s);
   const wa = (t: string) => `https://wa.me/${intl}?text=${encodeURIComponent(t)}`;
   const replies = s.quick_replies ?? DEFAULT_REPLIES;
-  const STATUS_LABEL: Record<string, string> = { pendiente: 'Recibimos tu pedido', confirmado: 'Pedido confirmado', preparando: 'Lo estamos preparando', enviado: o.delivery_method === 'envio' ? 'Salió el envío' : 'Listo para retirar', entregado: 'Gracias + pedir opinión', cancelado: 'Pedido cancelado' };
+  const STATUS_LABEL: Record<string, string> = { pendiente: 'Recibimos tu pedido', confirmado: 'Pedido confirmado', preparando: 'Lo estamos preparando', enviado: o.delivery_method === 'envio' ? 'Salió el envío' : 'Listo para retirar', entregado: 'Gracias + pedir opinión', cancelado: 'Pedido cancelado', vencido: 'Venció (no lo retiró)' };
   return (
     <>
       <Link href="/admin/pedidos" className="mb-4 inline-flex items-center gap-1.5 font-semibold text-gray-600 hover:text-gray-900"><ArrowLeft className="size-4" /> Pedidos</Link>
@@ -31,12 +35,26 @@ export default async function Pedido({ params }: { params: Promise<{ id: string 
       </div>
       <div className="grid gap-5 lg:grid-cols-[1.3fr_1fr]">
         <div className="space-y-5">
+          {flagged && (
+            <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm" data-testid="pickup-card">
+              <h2 className="mb-3 font-bold">{o.delivery_method === 'retiro' ? 'Retiro en el local' : 'Atención'}</h2>
+              <PickupControls id={o.id} status={o.delivery_method === 'retiro' ? o.status : 'entregado'} deadline={deadline} left={timeLeft(o.expires_at)} noShow={!!o.no_show}
+                flaggedTimes={flagged?.times ?? 0} needsDeposit={!!o.needs_deposit} depositPct={s.noshow_deposit_pct ?? 20} phone={o.customer_phone} />
+            </section>
+          )}
           <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
             <h2 className="mb-4 font-bold">Estado</h2>
             <StatusControls id={o.id} status={o.status} stockApplied={o.stock_applied} />
             <a href={wa(statusMessage(o, s, site))} target="_blank" rel="noopener noreferrer" className="mt-4 flex items-center justify-center gap-2 rounded-xl border-2 border-[#25d366] bg-emerald-50 py-3 font-bold text-emerald-800 hover:bg-emerald-100"><WhatsAppIcon className="size-5" /> Avisarle al cliente: “{STATUS_LABEL[o.status]}”</a>
             <p className="mt-1.5 text-center text-xs text-gray-500">Se abre WhatsApp con el mensaje listo. Revisalo y tocá enviar.</p>
           </section>
+          {!flagged && o.delivery_method === 'retiro' && (
+            <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm" data-testid="pickup-card">
+              <h2 className="mb-3 font-bold">{o.delivery_method === 'retiro' ? 'Retiro en el local' : 'Atención'}</h2>
+              <PickupControls id={o.id} status={o.delivery_method === 'retiro' ? o.status : 'entregado'} deadline={deadline} left={timeLeft(o.expires_at)} noShow={!!o.no_show}
+                flaggedTimes={0} needsDeposit={!!o.needs_deposit} depositPct={s.noshow_deposit_pct ?? 20} phone={o.customer_phone} />
+            </section>
+          )}
           <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
             <h2 className="font-bold">Respuestas rápidas</h2>
             <p className="mb-3 text-sm text-gray-500">Un toque y se abre WhatsApp con el mensaje para {o.customer_name.split(' ')[0]}. <Link href="/admin/respuestas" className="font-semibold underline">Editar respuestas</Link></p>

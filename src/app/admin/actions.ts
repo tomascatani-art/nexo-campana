@@ -7,6 +7,7 @@ import { sql } from '@/lib/db';
 import { changePassword, login, logout, requireAdmin } from '@/lib/auth';
 import { cleanupOrphanImages, storeImage } from '@/lib/images';
 import { slugify } from '@/lib/format';
+import { ACTIVE_STATUSES, applyOrderStatus, ensureHoldSchema, phoneKey } from '@/lib/orders';
 
 export type FormState = { ok?: boolean; error?: string; message?: string; field?: string } | undefined;
 
@@ -424,43 +425,90 @@ export async function markSharedAction(ids: string[]) {
 }
 
 // ------------------------------------------------------------------ pedidos
-const STATUS = z.enum(['pendiente', 'confirmado', 'preparando', 'enviado', 'entregado', 'cancelado']);
-const DISCOUNTS = ['confirmado', 'preparando', 'enviado', 'entregado'];
+const STATUS = z.enum(['pendiente', 'confirmado', 'preparando', 'enviado', 'entregado', 'cancelado', 'vencido']);
+
+async function holdHours() {
+  await ensureHoldSchema();
+  const [r] = await sql<{ h: number | null }[]>`select order_hold_hours as h from site_settings where id = 1`;
+  return r?.h ?? 48;
+}
 
 /**
  * Cambia el estado de un pedido. Al pasar a "confirmado" (o cualquier estado posterior) se descuenta
- * el stock y se registra la venta. Si se cancela un pedido que ya había descontado, el stock vuelve.
+ * el stock y se registra la venta. Si se cancela (o vence) un pedido que ya había descontado, el stock vuelve.
  */
 export async function setOrderStatusAction(id: string, status: string): Promise<{ ok: boolean; message?: string; error?: string }> {
   const user = await requireAdmin();
   try {
     UUID.parse(id);
     const next = STATUS.parse(status);
+    const hours = await holdHours();
     let warn = '';
+    await sql.begin(async (tx) => { warn = (await applyOrderStatus(tx, id, next, user.username, { holdHours: hours })).warn; });
+    refreshSite();
+    revalidatePath('/admin', 'layout');
+    const msgs: Record<string, string> = { confirmado: 'Pedido confirmado: el stock se descontó.', cancelado: 'Pedido cancelado.', vencido: 'Pedido marcado como vencido.', entregado: '¡Pedido entregado!' };
+    return { ok: true, message: (msgs[next] ?? `Pedido marcado como ${next}.`) + warn };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Error' };
+  }
+}
+
+/** Le da más tiempo al cliente para retirar el pedido (si estaba vencido, lo vuelve a "Pendiente"). */
+export async function extendOrderAction(id: string, hours: number): Promise<{ ok: boolean; message?: string; error?: string }> {
+  const user = await requireAdmin();
+  try {
+    UUID.parse(id);
+    const h = z.number().int().min(1).max(24 * 14).parse(hours);
+    await ensureHoldSchema();
     await sql.begin(async (tx) => {
-      const [o] = await tx<{ status: string; stock_applied: boolean; code: string; items: { product_id: string; variant_id: string | null; qty: number; unit_price: number }[] }[]>`
-        select status, stock_applied, code, items from orders where id = ${id} for update`;
+      const [o] = await tx<{ status: string }[]>`select status from orders where id = ${id} for update`;
       if (!o) throw new Error('El pedido ya no existe.');
-      if (o.status === next) return;
-      const apply = DISCOUNTS.includes(next) && !o.stock_applied;
-      const revert = next === 'cancelado' && o.stock_applied;
-      if (apply || revert) {
-        const sign = apply ? -1 : 1;
-        for (const it of o.items) {
-          const [p] = await tx<{ stock_qty: number; track_stock: boolean }[]>`update products set stock_qty = stock_qty + ${sign * it.qty}, updated_at = now() where id = ${it.product_id} returning stock_qty, track_stock`;
-          if (!p) continue; // producto borrado
-          if (it.variant_id) await tx`update product_variants set stock_qty = stock_qty + ${sign * it.qty} where id = ${it.variant_id}`;
-          if (p.track_stock && p.stock_qty < 0) warn = ' Ojo: algún producto quedó con stock negativo. Revisalo en Stock.';
-          await tx`insert into stock_movements ${tx({ product_id: it.product_id, variant_id: it.variant_id, kind: apply ? 'venta' : 'devolucion', qty: sign * it.qty, unit_price: apply ? it.unit_price : null, note: `Pedido #${o.code}${revert ? ' cancelado' : ''}`, order_id: id, created_by: user.username })}`;
-        }
-      }
-      await tx`update orders set status = ${next}, stock_applied = ${apply ? true : revert ? false : o.stock_applied}, updated_at = now(),
-        history = history || ${tx.json([{ status: next, at: new Date().toISOString(), by: user.username }])}::jsonb where id = ${id}`;
+      if (o.status === 'entregado' || o.status === 'cancelado') throw new Error('Este pedido ya está cerrado.');
+      await tx`update orders set expires_at = greatest(coalesce(expires_at, now()), now()) + make_interval(hours => ${h}), updated_at = now() where id = ${id}`;
+      if (o.status === 'vencido') await applyOrderStatus(tx, id, 'pendiente', user.username);
+    });
+    revalidatePath('/admin', 'layout');
+    return { ok: true, message: `Listo: le diste ${h} horas más para retirarlo.` };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Error' };
+  }
+}
+
+/** "No lo retiró": vence el pedido (el stock vuelve) y suma al cliente a la lista de los que no retiran. */
+export async function markNoShowAction(id: string): Promise<{ ok: boolean; message?: string; error?: string }> {
+  const user = await requireAdmin();
+  try {
+    UUID.parse(id);
+    await ensureHoldSchema();
+    await sql.begin(async (tx) => {
+      const [o] = await tx<{ status: string; no_show: boolean; code: string; customer_name: string; customer_phone: string }[]>`
+        select status, no_show, code, customer_name, customer_phone from orders where id = ${id} for update`;
+      if (!o) throw new Error('El pedido ya no existe.');
+      if (o.status === 'entregado') throw new Error('Este pedido figura como entregado.');
+      if (ACTIVE_STATUSES.includes(o.status)) await applyOrderStatus(tx, id, 'vencido', user.username);
+      if (o.no_show) return;
+      await tx`update orders set no_show = true where id = ${id}`;
+      await tx`insert into no_show_customers ${tx({ phone_key: phoneKey(o.customer_phone), name: o.customer_name, phone: o.customer_phone, last_order_code: o.code })}
+        on conflict (phone_key) do update set times = no_show_customers.times + 1, name = excluded.name, phone = excluded.phone, last_order_code = excluded.last_order_code, updated_at = now()`;
     });
     refreshSite();
     revalidatePath('/admin', 'layout');
-    const msgs: Record<string, string> = { confirmado: 'Pedido confirmado: el stock se descontó.', cancelado: 'Pedido cancelado.', entregado: '¡Pedido entregado!' };
-    return { ok: true, message: (msgs[next] ?? `Pedido marcado como ${next}.`) + warn };
+    return { ok: true, message: 'Listo: lo anotamos en “No retiraron”. La próxima vez que pida, le vamos a pedir seña.' };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Error' };
+  }
+}
+
+/** Saca a un cliente de la lista "No retiraron" (ya no se le pide seña). */
+export async function removeNoShowAction(phone: string): Promise<{ ok: boolean; message?: string; error?: string }> {
+  await requireAdmin();
+  try {
+    await ensureHoldSchema();
+    const key = phoneKey(z.string().max(40).parse(phone));
+    await sql`delete from no_show_customers where phone_key = ${key}`;
+    revalidatePath('/admin', 'layout');
+    return { ok: true, message: 'Listo: lo sacamos de la lista.' };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Error' };
   }
@@ -546,6 +594,13 @@ export async function saveSettingsAction(_: FormState, fd: FormData): Promise<Fo
         payment_methods: fd.getAll('payment_methods').map(String).filter((m) => ['efectivo', 'transferencia', 'debito', 'credito', 'mercadopago', 'dolares'].includes(m)),
         transfer_surcharge_pct: pct(fd.get('transfer_surcharge_pct'), 'El recargo por transferencia'),
       });
+      if (fd.has('order_hold_hours')) {
+        await ensureHoldSchema();
+        const h = Number(fd.get('order_hold_hours'));
+        if (![0, 24, 48, 72].includes(h)) throw new Error('Elegí cuántas horas se guarda un pedido.');
+        data.order_hold_hours = h;
+        data.noshow_deposit_pct = pct(fd.get('noshow_deposit_pct'), 'La seña') ?? 20;
+      }
       const [cur] = await sql<{ shipping_mode: string }[]>`select shipping_mode from site_settings where id = 1`;
       if (!data.pickup_enabled && cur?.shipping_mode !== 'activo') throw new Error('Mientras los envíos no estén activos, el retiro en el local tiene que quedar activado.');
     }

@@ -8,6 +8,9 @@ import type { Category, Hours, Review, SpecialDay, WaitlistEntry, Movement, Orde
 export const getSettings = cache(async (): Promise<Settings> => {
   const [s] = await sql<Settings[]>`select *, shipping_cost::float8 as shipping_cost, free_shipping_from::float8 as free_shipping_from, min_order_total::float8 as min_order_total, cash_discount_pct::float8 as cash_discount_pct, transfer_surcharge_pct::float8 as transfer_surcharge_pct, usd_rate::float8 as usd_rate from site_settings where id = 1`;
   if (!s) throw new Error('La base de datos no tiene configuración. Ejecutá "npm run db:setup".');
+  // Columnas nuevas (pueden no existir todavía en una base vieja: se crean solas al primer pedido / al abrir el panel)
+  s.order_hold_hours = s.order_hold_hours ?? 48;
+  s.noshow_deposit_pct = s.noshow_deposit_pct == null ? 20 : Number(s.noshow_deposit_pct);
   return s;
 });
 
@@ -194,7 +197,7 @@ export async function getProductStats(days = 30) {
     with o as (
       select (i->>'product_id')::uuid as product_id, sum((i->>'qty')::int)::int as ordered
       from orders, jsonb_array_elements(items) i
-      where status <> 'cancelado' and created_at > now() - make_interval(days => ${days})
+      where status not in ('cancelado', 'vencido') and created_at > now() - make_interval(days => ${days})
       group by 1
     ), st as (
       select product_id, sum(views)::int as views, sum(adds)::int as adds from product_stats
@@ -217,7 +220,7 @@ export async function getCustomers() {
       (array_agg(customer_phone order by created_at desc))[1] as phone,
       count(*)::int as orders, coalesce(sum(total), 0)::float8 as total,
       max(created_at) as last_at, min(created_at) as first_at
-    from orders where status <> 'cancelado'
+    from orders where status not in ('cancelado', 'vencido')
     group by 1 order by sum(total) desc nulls last, count(*) desc limit 500`;
 }
 
