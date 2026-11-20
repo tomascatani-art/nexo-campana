@@ -45,7 +45,7 @@ export default async function ProductPage({ params }: Props) {
   const off = discountPct(p.price, p.old_price);
   const out = p.availability === 'out';
   const cash = s.payment_methods?.includes('efectivo') && s.cash_discount_pct ? s.cash_discount_pct : null;
-  const usdRate = s.payment_methods?.includes('dolares') && s.usd_rate ? s.usd_rate : null;
+  const acceptsUsd = !!s.payment_methods?.includes('dolares');
   const related = products.filter((x) => x.id !== p.id && x.category_slug === p.category_slug && x.availability !== 'out').slice(0, 4);
 
   return (
@@ -74,7 +74,7 @@ export default async function ProductPage({ params }: Props) {
             ) : <span className="font-display text-3xl font-black text-gold">Consultar precio</span>}
           </div>
           {p.offer_until && <p className="mt-2 inline-flex rounded-full bg-red-500/15 px-3 py-1 text-sm font-bold text-red-300" data-testid="offer-until">⏰ Oferta válida hasta el {new Date(p.offer_until).toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })} h</p>}
-          {usdRate && p.price != null && <p className="mt-2 text-mist" data-testid="usd-price">o <b className="text-white">US$ {Math.ceil(p.price / usdRate).toLocaleString('es-AR')}</b> en dólares (cotización del día)</p>}
+          {acceptsUsd && p.price != null && <p className="mt-2 text-mist" data-testid="usd-price">También aceptamos dólares a la cotización del día (se confirma en el local).</p>}
           {cash && p.price != null && <p className="mt-3 text-lg" data-testid="cash-price">💵 <strong className="text-emerald-300">{formatPrice(Math.round(p.price * (1 - cash / 100)))}</strong> <span className="text-mist">pagando en efectivo ({cash}% OFF)</span></p>}
           {p.bulk_qty && p.bulk_price != null && (
             <div className="mt-5 flex items-center gap-3 rounded-2xl border border-gold/40 bg-gold/10 p-4">

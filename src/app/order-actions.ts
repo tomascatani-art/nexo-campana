@@ -105,7 +105,7 @@ export async function submitOrderAction(raw: unknown): Promise<OrderResult> {
       surcharge ? `Recargo por transferencia: +${formatPrice(surcharge)}` : '',
       d.delivery === 'envio' ? `Envío${zone ? ` (${zone.name})` : ''}: ${shipping == null ? 'a convenir' : shipping === 0 ? 'GRATIS' : formatPrice(shipping)}` : '',
       `*TOTAL: ${formatPrice(total)}*${lines.some((l) => !l.priced) ? ' + productos a consultar' : ''}`,
-      usd ? `💵 *En dólares: US$ ${usd}* (cotización ${formatPrice(s.usd_rate)})` : '',
+      payment === 'dolares' ? '💵 Pago en dólares: cotización del día (se confirma en el local)' : '',
       '',
       `👤 ${d.name}`,
       `📞 ${d.phone}`,

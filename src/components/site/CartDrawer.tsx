@@ -3,7 +3,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, CircleAlert, CircleCheck, Copy, Info, Loader2, Minus, Plus, ShoppingBag, Store, Trash2, Truck, X } from 'lucide-react';
-import { formatPrice, paymentAdjust, shippingFor, toUsd } from '@/lib/pricing';
+import { formatPrice, paymentAdjust, shippingFor } from '@/lib/pricing';
 import { submitOrderAction } from '@/app/order-actions';
 import { PAYMENT_METHODS } from '@/lib/types';
 import { WhatsAppIcon } from '@/components/icons';
@@ -52,7 +52,6 @@ export function CartDrawer({ cfg }: { cfg: CheckoutConfig }) {
   const freeShip = cfg.freeFrom != null && total >= cfg.freeFrom;
   const { discount: disc, surcharge } = paymentAdjust(lines.map((l) => ({ subtotal: l.subtotal ?? 0, cat: l.product.category_slug })), f.payment, { cashPct: cfg.cashPct, transferPct: cfg.transferPct, catPct: cfg.catPct });
   const grand = total - disc + surcharge + (ship ?? 0);
-  const usd = f.payment === 'dolares' ? toUsd(grand, cfg.usdRate) : null;
   const belowMin = cfg.minTotal != null && total < cfg.minTotal;
   const up = (k: keyof Form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => { setF({ ...f, [k]: e.target.value }); if (err?.field === k) setErr(null); };
 
@@ -209,7 +208,7 @@ export function CartDrawer({ cfg }: { cfg: CheckoutConfig }) {
                   </select>
                   <span className="mt-1 block text-xs text-mist">El pago se coordina con el local al confirmar el pedido.</span>
                   {f.payment === 'transferencia' && cfg.transferNotice && <span className="mt-2 flex gap-2 rounded-xl border border-amber-400/40 bg-amber-400/10 p-3 text-sm font-semibold text-amber-200" data-testid="transfer-notice"><CircleAlert className="mt-0.5 size-4 shrink-0" /> {cfg.transferNotice}</span>}
-                  {f.payment === 'dolares' && cfg.usdRate && <span className="mt-2 block rounded-xl border border-emerald-400/30 bg-emerald-400/10 p-3 text-sm text-emerald-100">Cotización de hoy: <b>{formatPrice(cfg.usdRate)}</b> por dólar.</span>}
+                  {f.payment === 'dolares' && <span className="mt-2 block rounded-xl border border-emerald-400/30 bg-emerald-400/10 p-3 text-sm text-emerald-100">Se toma la cotización del dólar del día. El valor final se confirma en el local.</span>}
                 </label>
               )}
               <label className="block">
@@ -223,7 +222,6 @@ export function CartDrawer({ cfg }: { cfg: CheckoutConfig }) {
               {disc > 0 && <div className="flex justify-between text-sm font-semibold text-emerald-300" data-testid="cash-discount"><span>Descuento efectivo ({cfg.cashPct}%)</span><span className="tabular-nums">-{formatPrice(disc)}</span></div>}
               {f.delivery === 'envio' && <div className="flex justify-between text-sm text-mist"><span>Envío</span><span className="tabular-nums">{ship == null ? 'A convenir' : ship === 0 ? 'Gratis' : formatPrice(ship)}</span></div>}
               <div className="flex items-end justify-between"><span className="font-semibold">Total</span><span className="font-display text-2xl font-black text-gold tabular-nums">{formatPrice(grand)}</span></div>
-              {usd != null && <div className="flex justify-between text-sm font-bold text-emerald-300" data-testid="usd-total"><span>En dólares</span><span className="tabular-nums">US$ {usd.toLocaleString('es-AR')}</span></div>}
               {cfg.refundPolicy && <p className="text-center text-[11px] leading-snug text-mist" data-testid="refund-policy">⚠️ {cfg.refundPolicy}</p>}
               {err && <p role="alert" className="flex items-start gap-2 rounded-xl bg-red-500/15 p-3 text-sm font-medium text-red-200"><CircleAlert className="mt-0.5 size-4 shrink-0" /> {err.text}</p>}
               <button type="submit" disabled={busy} className="btn-shine flex w-full items-center justify-center gap-2 rounded-xl bg-wa py-4 text-lg font-bold text-white shadow-lg shadow-wa/20 transition hover:bg-wa-deep active:scale-[.98] disabled:opacity-60">

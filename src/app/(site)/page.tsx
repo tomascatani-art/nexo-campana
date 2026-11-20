@@ -51,7 +51,7 @@ export default async function Home() {
   const policies = [
     surText ? `Las transferencias tienen recargo: ${surText}.` : null,
     s.payment_methods?.includes('transferencia') ? s.transfer_notice : null,
-    s.payment_methods?.includes('dolares') && s.usd_rate ? `Aceptamos dólares a la cotización del día (hoy ${formatPrice(s.usd_rate)}).` : null,
+    s.payment_methods?.includes('dolares') ? 'Aceptamos dólares a la cotización del día (el valor se confirma en el local).' : null,
     s.payment_methods?.includes('efectivo') && s.cash_discount_pct ? `Pagando en efectivo tenés ${s.cash_discount_pct}% de descuento.` : null,
     s.refund_policy,
     s.admission_notice,

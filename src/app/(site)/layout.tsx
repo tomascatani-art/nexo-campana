@@ -69,7 +69,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
         businessName: s.business_name, whatsapp: s.whatsapp_number || null, note: s.list_note,
         pickup: s.pickup_enabled || s.shipping_mode !== 'activo', shipping: s.shipping_mode === 'activo',
         shippingSoon: s.shipping_mode === 'proximamente' ? s.shipping_soon_text || SHIPPING_SOON_DEFAULT : null, zones: s.shipping_mode === 'activo' ? s.shipping_zones ?? [] : [], shippingCost: s.shipping_cost, freeFrom: s.free_shipping_from, shippingInfo: s.shipping_info,
-        payments: (s.payment_methods ?? []).filter((m) => m !== 'dolares' || !!s.usd_rate), transferInfo: s.transfer_info_public ? s.transfer_info : null, minTotal: s.min_order_total, address: [s.address, s.city].filter(Boolean).join(', '),
+        payments: (s.payment_methods ?? []), transferInfo: s.transfer_info_public ? s.transfer_info : null, minTotal: s.min_order_total, address: [s.address, s.city].filter(Boolean).join(', '),
         cashPct: s.payment_methods?.includes('efectivo') && s.cash_discount_pct ? s.cash_discount_pct : null,
         transferPct: s.transfer_surcharge_pct, catPct: Object.fromEntries(categories.filter((c) => c.transfer_surcharge_pct != null).map((c) => [c.slug, c.transfer_surcharge_pct!])),
         usdRate: s.usd_rate, transferNotice: s.transfer_notice, refundPolicy: s.refund_policy,
