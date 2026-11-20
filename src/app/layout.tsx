@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter, Montserrat } from 'next/font/google';
 import './globals.css';
+import { trace } from '@/lib/trace';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
 const montserrat = Montserrat({ subsets: ['latin'], weight: ['600', '700', '800', '900'], variable: '--font-montserrat', display: 'swap' });
@@ -12,6 +13,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = { themeColor: '#0b0b0c', width: 'device-width', initialScale: 1 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  trace('root layout');
   return (
     <html lang="es-AR" className={`${inter.variable} ${montserrat.variable}`}>
       <body className="antialiased">

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { trace } from '@/lib/trace';
+trace('pagina: modulo cargado');
 import { ArrowRight, BadgeCheck, Bell, ClipboardList, Clock, MapPin, Navigation, PackageCheck, Store, Truck, Wallet } from 'lucide-react';
 import { getPublicData } from '@/lib/data';
 import { groupHours, siteUrl, specialDayLabel, specialText, waLink } from '@/lib/format';
