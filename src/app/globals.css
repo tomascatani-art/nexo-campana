@@ -31,6 +31,9 @@ body { font-family: var(--font-sans); }
 
 .reveal { opacity: 0; transform: translateY(24px); transition: opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1); transition-delay: var(--d, 0ms); }
 .reveal.is-visible { opacity: 1; transform: none; }
+/* Red de seguridad: la portada aparece igual aunque el script tarde en llegar */
+#inicio .reveal:not(.is-visible) { animation: reveal-fallback .6s ease 1.5s forwards; }
+@keyframes reveal-fallback { to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .reveal { opacity: 1; transform: none; transition: none; }

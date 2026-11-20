@@ -15,7 +15,13 @@ export function Interactions() {
       },
       { rootMargin: '0px 0px -8% 0px', threshold: 0.08 },
     );
-    document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
+    const watch = (root: ParentNode) => root.querySelectorAll('.reveal:not(.is-visible)').forEach((el) => io.observe(el));
+    watch(document);
+    // La página llega por partes y al navegar aparecen secciones nuevas: también hay que observarlas
+    const mo = new MutationObserver((muts) => {
+      for (const m of muts) m.addedNodes.forEach((n) => { if (n instanceof HTMLElement) { if (n.matches('.reveal:not(.is-visible)')) io.observe(n); watch(n); } });
+    });
+    mo.observe(document.body, { childList: true, subtree: true });
 
     const onMove = (ev: PointerEvent) => {
       const card = (ev.target as HTMLElement | null)?.closest?.('.glow-card') as HTMLElement | null;
@@ -28,6 +34,7 @@ export function Interactions() {
 
     return () => {
       io.disconnect();
+      mo.disconnect();
       document.removeEventListener('pointermove', onMove);
     };
   }, []);
