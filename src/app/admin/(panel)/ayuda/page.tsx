@@ -15,6 +15,7 @@ const QA: [string, React.ReactNode][] = [
   ['¿Cómo pongo un feriado?', <><Link href="/admin/horarios" className="underline">Horarios y feriados</Link> → elegí la fecha, cerrado u otro horario, y el motivo. La web avisa desde 10 días antes y el día pasado se borra solo.</>],
   ['¿Cómo activo los envíos?', <><Link href="/admin/envios" className="underline">Envíos</Link> → tocá <b>Activo</b>. Mientras tanto, en “Próximamente” los clientes dejan su WhatsApp para que les avises.</>],
   ['¿Me puede llegar un resumen todos los días solo?', <>Hoy es un toque: en el Tablero, <b>Mandarme el resumen</b> abre WhatsApp con el resumen del día listo. Que llegue solo requiere la API paga de WhatsApp Business (se puede sumar más adelante).</>],
+  ['¿Cómo sumo a un empleado al panel?', <>Entrá a <Link href="/admin/usuarios" className="underline">Usuarios</Link>, escribí su nombre y tocá <b>Generar link de invitación</b>. Mandáselo por WhatsApp: con ese link crea su propio usuario y contraseña (o entra con su Google). Podés sumar a todas las personas que quieras. Si alguien deja de trabajar con vos, tocá <b>Quitar</b>.</>],
   ['Olvidé mi contraseña', <>Pedile a quien te hizo la web que te genere una nueva. Para cambiarla vos: <Link href="/admin/cuenta" className="underline">Mi contraseña</Link>.</>],
 ];
 

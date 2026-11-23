@@ -4,7 +4,7 @@ import { CircleAlert, Loader2, UserPlus } from 'lucide-react';
 import { activateAction } from '../account-actions';
 import { inputCls } from '@/components/admin/fields';
 
-export function ActivateForm({ token }: { token: string }) {
+export function ActivateForm({ token, defaultName = '' }: { token: string; defaultName?: string }) {
   const [state, action, pending] = useActionState(activateAction, undefined);
   const ring = (f: string) => (state?.field === f ? ' ring-2 ring-red-500' : '');
   return (
@@ -17,7 +17,7 @@ export function ActivateForm({ token }: { token: string }) {
       )}
       <label className="block">
         <span className="mb-1.5 block font-semibold text-gray-800">Tu nombre</span>
-        <input name="display_name" defaultValue={state?.values?.display_name} autoComplete="name" maxLength={60} placeholder="Ej: Martín" className={inputCls} />
+        <input name="display_name" defaultValue={state?.values?.display_name ?? defaultName} autoComplete="name" maxLength={60} placeholder="Ej: Martín" className={inputCls} />
       </label>
       <label className="block">
         <span className="mb-1.5 block font-semibold text-gray-800">Usuario para entrar</span>

@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import {
-  Boxes, ClipboardList, Clock, DollarSign, ExternalLink, HelpCircle, House, KeyRound, LayoutGrid, LogOut, Menu, Package, Plus, BarChart3, MessageSquareText, QrCode, Tag, Users, Star, FileSpreadsheet, Store, Truck, X,
+  Boxes, ClipboardList, Clock, DollarSign, ExternalLink, HelpCircle, House, KeyRound, LayoutGrid, LogOut, Menu, Package, Plus, BarChart3, MessageSquareText, QrCode, Tag, Users, UserCog, Star, FileSpreadsheet, Store, Truck, X,
 } from 'lucide-react';
 import { logoutAction } from '@/app/admin/actions';
 import { WhatsAppIcon } from '@/components/icons';
@@ -27,11 +27,12 @@ const NAV = [
   { href: '/admin/horarios', label: 'Horarios y feriados', icon: Clock },
   { href: '/admin/carteles', label: 'Carteles de precio', icon: Tag },
   { href: '/admin/cartel', label: 'Cartel con QR', icon: QrCode },
+  { href: '/admin/usuarios', label: 'Usuarios', icon: UserCog },
   { href: '/admin/cuenta', label: 'Mi cuenta', icon: KeyRound },
   { href: '/admin/ayuda', label: 'Ayuda', icon: HelpCircle },
 ];
 
-export function AdminNav({ businessName, userName, newOrders }: { businessName: string; userName: string; newOrders: number }) {
+export function AdminNav({ businessName, userName, newOrders, owner = true }: { businessName: string; userName: string; newOrders: number; owner?: boolean }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
   const isActive = (href: string) =>
@@ -40,7 +41,7 @@ export function AdminNav({ businessName, userName, newOrders }: { businessName: 
   const list = (
     <nav aria-label="Panel" className="flex-1 overflow-y-auto px-3 py-4">
       <ul className="space-y-1">
-        {NAV.map(({ href, label, icon: Icon }) => (
+        {NAV.filter((n) => owner || n.href !== '/admin/usuarios').map(({ href, label, icon: Icon }) => (
           <li key={href}>
             <Link href={href} onClick={() => setOpen(false)} className={`flex items-center gap-3 rounded-xl px-4 py-3 font-semibold transition ${isActive(href) ? 'bg-gold text-ink shadow-sm' : 'text-white/75 hover:bg-white/10 hover:text-white'}`}>
               <Icon className="size-5" /> {label}

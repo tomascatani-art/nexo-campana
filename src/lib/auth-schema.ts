@@ -17,6 +17,10 @@ const STEPS = [
      id int primary key default 1 check (id = 1), google_client_id text, google_client_secret text,
      updated_at timestamptz not null default now())`,
   `alter table auth_config enable row level security`,
+  // Varios usuarios: 'owner' (dueño, maneja los usuarios) o 'staff' (empleado, ve el mismo panel)
+  `alter table admin_users add column if not exists role text not null default 'owner'`,
+  `alter table admin_invites add column if not exists kind text not null default 'owner'`,
+  `alter table admin_invites add column if not exists label text`,
 ];
 
 const g = globalThis as unknown as { __authSchema?: Promise<void> };
@@ -26,7 +30,9 @@ async function run() {
   const [r] = await sql<{ ok: boolean }[]>`
     select (to_regclass('public.auth_config') is not null
         and to_regclass('public.admin_invites') is not null
-        and exists (select 1 from information_schema.columns where table_name = 'admin_users' and column_name = 'recovery_hash')) as ok`;
+        and exists (select 1 from information_schema.columns where table_name = 'admin_users' and column_name = 'recovery_hash')
+        and exists (select 1 from information_schema.columns where table_name = 'admin_users' and column_name = 'role')
+        and exists (select 1 from information_schema.columns where table_name = 'admin_invites' and column_name = 'label')) as ok`;
   if (r?.ok) return;
   for (const s of STEPS) {
     try {

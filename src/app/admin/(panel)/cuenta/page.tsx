@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
-import { getPendingInvite, requireAdmin, RECOVERY_COOKIE } from '@/lib/auth';
+import Link from 'next/link';
+import { getPendingInvite, isOwner, requireAdmin, RECOVERY_COOKIE } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { callbackPath, getGoogleConfig, requestOrigin } from '@/lib/google';
 import { Card, Field, PageHeader } from '@/components/admin/fields';
@@ -20,14 +21,14 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
   const newCode = (await cookies()).get(RECOVERY_COOKIE)?.value;
   const google = await getGoogleConfig();
   const pending = await getPendingInvite();
-  const users = await sql<{ username: string; display_name: string | null }[]>`select username, display_name from admin_users order by created_at`;
+  const owner = isOwner(user);
+  const [{ n: others }] = await sql<{ n: number }[]>`select count(*)::int as n from admin_users where id <> ${user.id}`;
   const entries = await sql<{ username: string; created_at: Date }[]>`
     select username, created_at from login_attempts
     where success and username in (${user.username}, ${'google:' + (user.google_email ?? '-')})
     order by created_at desc limit 6`;
   const [recovery] = await sql<{ has: boolean }[]>`select recovery_hash is not null as has from admin_users where id = ${user.id}`;
   const redirectUri = (await requestOrigin()) + callbackPath;
-  const onlyMe = users.length === 1;
 
   return (
     <>
@@ -37,7 +38,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
 
       <div className="max-w-2xl space-y-6">
         {newCode && (
-          <Card title="¡Tu cuenta está lista! 🎉" description="Desde ahora solo vos podés entrar a este panel. Antes de seguir, guardá este código:">
+          <Card title="¡Tu cuenta está lista! 🎉" description={owner && others === 0 ? 'Desde ahora solo vos podés entrar a este panel. Antes de seguir, guardá este código:' : 'Ya podés usar el panel. Antes de seguir, guardá este código:'}>
             <RecoveryCodeBox code={newCode} />
             <form action={dismissRecoveryAction}>
               <SubmitButton>Ya lo guardé, seguir</SubmitButton>
@@ -46,11 +47,12 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
         )}
 
         <Card title="Quién puede entrar al panel">
-          {onlyMe ? <SecureBadge text="Solo vos tenés acceso a este panel." /> : (
-            <ul className="space-y-2">
-              {users.map((u) => <li key={u.username} className="rounded-xl bg-gray-50 px-4 py-3 font-semibold text-gray-800">{u.username}{u.display_name ? ` · ${u.display_name}` : ''}</li>)}
-            </ul>
-          )}
+          {owner ? (
+            <>
+              {others === 0 ? <SecureBadge text="Solo vos tenés acceso a este panel." /> : <p className="font-semibold text-gray-800">Vos y {others === 1 ? 'otra persona' : `${others} personas más`}.</p>}
+              <Link href="/admin/usuarios" className="inline-flex items-center gap-2 rounded-xl bg-gold px-5 py-3 font-bold text-ink hover:bg-gold-deep">Ver y sumar usuarios</Link>
+            </>
+          ) : <p className="text-gray-700">Entrás con tu propio usuario. Los usuarios del panel los maneja el dueño.</p>}
           <div>
             <p className="font-semibold text-gray-800">Tus últimos ingresos</p>
             {entries.length ? (
@@ -61,12 +63,12 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
           </div>
         </Card>
 
-        <Card
+        {owner && <Card
           title="Entregar el panel al dueño"
           description="Generá un link de un solo uso y mandáselo al dueño. Con ese link él crea su propio usuario y contraseña (o entra con su Google). En ese momento se borran los demás usuarios, incluido el tuyo: nadie más sabe su contraseña."
         >
           <InviteTool pendingUntil={pending ? fmt(pending.expires_at) : null} />
-        </Card>
+        </Card>}
 
         <Card title="Entrar con Google" description={google ? 'Entrás con tu cuenta de Google, sin recordar otra contraseña.' : 'Todavía no está activado. Abajo están los datos para activarlo.'}>
           {google && (user.google_email ? (
@@ -77,7 +79,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
           ) : (
             <GoogleButton href="/admin/google/entrar?modo=vincular">Vincular mi cuenta de Google</GoogleButton>
           ))}
-          <details className="rounded-xl border border-gray-200 p-4" open={!google}>
+          {owner && <details className="rounded-xl border border-gray-200 p-4" open={!google}>
             <summary className="cursor-pointer font-semibold text-gray-800">{google ? 'Configuración de Google (técnico)' : 'Activar el ingreso con Google'}</summary>
             {google?.source === 'hosting' ? (
               <p className="mt-3 text-gray-600">Está configurado desde el hosting (variables GOOGLE_CLIENT_ID y GOOGLE_CLIENT_SECRET).</p>
@@ -93,7 +95,8 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
                 </div>
               </AdminForm>
             )}
-          </details>
+          </details>}
+          {!owner && !google && <p className="text-gray-600">El dueño todavía no lo activó.</p>}
         </Card>
 
         <AdminForm action={changePasswordAction} resetOnSuccess>

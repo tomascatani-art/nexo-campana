@@ -3,8 +3,8 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import {
-  activateOwner, cancelInvites, createInvite, linkGoogle, passwordProblem, recoverWithCode, regenerateRecovery,
-  requireAdmin, RECOVERY_COOKIE, usernameProblem,
+  activateOwner, cancelInvites, cancelStaffInvite, createInvite, linkGoogle, passwordProblem, recoverWithCode, regenerateRecovery,
+  removeStaff, requireAdmin, requireOwner, RECOVERY_COOKIE, usernameProblem,
 } from '@/lib/auth';
 import { requestOrigin, saveGoogleConfig } from '@/lib/google';
 
@@ -24,7 +24,7 @@ export async function activateAction(_: AccountState, fd: FormData): Promise<Acc
   const pErr = passwordProblem(password, str(fd, 'confirm'));
   if (pErr) return { error: pErr, field: 'password', values };
   const r = await activateOwner(token, { username, display_name: display, password });
-  if (!r.ok) return { error: r.error, values };
+  if (!r.ok) return { error: r.error, field: 'field' in r ? r.field : undefined, values };
   redirect('/admin/cuenta?bienvenida=1');
 }
 
@@ -44,14 +44,14 @@ export async function recoverAction(_: AccountState, fd: FormData): Promise<Acco
 
 // ------------------------------------------------------------------ dentro del panel
 export async function createInviteAction(): Promise<AccountState> {
-  const user = await requireAdmin();
-  const token = await createInvite(user);
+  const user = await requireOwner();
+  const token = await createInvite(user, 'owner');
   revalidatePath('/admin/cuenta');
   return { ok: true, link: `${await requestOrigin()}/admin/activar?c=${token}` };
 }
 
 export async function cancelInviteAction(): Promise<AccountState> {
-  await requireAdmin();
+  await requireOwner();
   await cancelInvites();
   revalidatePath('/admin/cuenta');
   return { ok: true, message: 'Link anulado: ya no sirve para crear una cuenta.' };
@@ -77,7 +77,7 @@ export async function unlinkGoogleAction(): Promise<AccountState> {
 }
 
 export async function saveGoogleConfigAction(_: AccountState, fd: FormData): Promise<AccountState> {
-  await requireAdmin();
+  await requireOwner();
   const id = str(fd, 'client_id').trim();
   const secret = str(fd, 'client_secret').trim();
   if (fd.get('borrar') === '1') {
@@ -90,4 +90,27 @@ export async function saveGoogleConfigAction(_: AccountState, fd: FormData): Pro
   await saveGoogleConfig(id, secret);
   revalidatePath('/admin', 'layout');
   return { ok: true, message: 'Listo: el botón "Entrar con Google" ya está activo.' };
+}
+
+// ------------------------------------------------------------------ usuarios (solo el dueño)
+export async function inviteStaffAction(_: AccountState, fd: FormData): Promise<AccountState> {
+  const user = await requireOwner();
+  const label = str(fd, 'label').trim().slice(0, 60) || null;
+  const token = await createInvite(user, 'staff', label);
+  revalidatePath('/admin/usuarios');
+  return { ok: true, link: `${await requestOrigin()}/admin/activar?c=${token}`, values: { label: label ?? '' } };
+}
+
+export async function cancelStaffInviteAction(id: string): Promise<AccountState> {
+  await requireOwner();
+  await cancelStaffInvite(id);
+  revalidatePath('/admin/usuarios');
+  return { ok: true, message: 'Link anulado.' };
+}
+
+export async function removeStaffAction(id: string): Promise<AccountState> {
+  const user = await requireOwner();
+  const ok = await removeStaff(user, id);
+  revalidatePath('/admin/usuarios');
+  return ok ? { ok: true, message: 'Listo: esa persona ya no puede entrar al panel.' } : { error: 'No se pudo quitar ese usuario.' };
 }

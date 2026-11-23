@@ -1,9 +1,12 @@
 'use client';
 import { useActionState, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, CircleAlert, Copy, KeyRound, Link2, Loader2, ShieldCheck, Unlink, X } from 'lucide-react';
+import { Check, CircleAlert, Copy, KeyRound, Link2, Loader2, ShieldCheck, Trash2, Unlink, UserPlus, X } from 'lucide-react';
 import { WhatsAppIcon } from '@/components/icons';
-import { cancelInviteAction, createInviteAction, regenerateRecoveryAction, unlinkGoogleAction, type AccountState } from '@/app/admin/account-actions';
+import {
+  cancelInviteAction, cancelStaffInviteAction, createInviteAction, inviteStaffAction, regenerateRecoveryAction, removeStaffAction, unlinkGoogleAction, type AccountState,
+} from '@/app/admin/account-actions';
+import { inputCls } from './fields';
 import { Flash } from './ui';
 
 function CopyButton({ text, label = 'Copiar' }: { text: string; label?: string }) {
@@ -159,4 +162,87 @@ export function GoogleG({ className = 'size-6' }: { className?: string }) {
 
 export function SecureBadge({ text }: { text: string }) {
   return <p className="flex items-center gap-2 rounded-xl bg-emerald-50 p-4 font-semibold text-emerald-800"><ShieldCheck className="size-5 shrink-0" /> {text}</p>;
+}
+
+/** Sumar a otra persona al panel: genera un link de un solo uso para mandarle. */
+export function StaffInviteTool({ businessName }: { businessName: string }) {
+  const [state, action, busy] = useActionState(inviteStaffAction, undefined);
+  const [again, setAgain] = useState(0);
+  const link = state?.link && again === 0 ? state.link : null;
+  const who = state?.values?.label;
+  if (link) {
+    const wa = `https://wa.me/?text=${encodeURIComponent(`Hola${who ? ' ' + who : ''}! Te paso el link para entrar al panel de ${businessName}. Abrilo y creá tu usuario y contraseña (o entrá con tu Google). Sirve una sola vez y vence en 3 días:\n${link}`)}`;
+    return (
+      <div className="space-y-4">
+        <Flash message={`Link listo${who ? ` para ${who}` : ''}. Mandáselo por WhatsApp.`} />
+        <div className="rounded-xl bg-gray-50 p-4">
+          <p className="text-sm font-semibold text-gray-600">Link de invitación (vence en 3 días, sirve una sola vez):</p>
+          <p className="mt-2 select-all break-all font-mono text-sm text-gray-900">{link}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <a href={wa} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-xl bg-[#25D366] px-5 py-3 font-bold text-white hover:brightness-95">
+            <WhatsAppIcon className="size-5" /> Mandar por WhatsApp
+          </a>
+          <CopyButton text={link} label="Copiar link" />
+        </div>
+        <button type="button" onClick={() => setAgain((n) => n + 1)} className="inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-5 py-3 font-semibold text-gray-800 hover:bg-gray-50">
+          <UserPlus className="size-5" /> Invitar a otra persona
+        </button>
+      </div>
+    );
+  }
+  return (
+    <form action={(fd) => { setAgain(0); action(fd); }} className="space-y-4">
+      {state?.error && <ErrorBox text={state.error} />}
+      <label className="block">
+        <span className="mb-1.5 block font-semibold text-gray-800">Nombre de la persona</span>
+        <input name="label" maxLength={60} placeholder="Ej: Juan (mostrador)" className={inputCls} />
+        <span className="mt-1.5 block text-sm text-gray-500">Para que la reconozcas en la lista. Es opcional.</span>
+      </label>
+      <button disabled={busy} className="inline-flex items-center gap-2 rounded-xl bg-gold px-6 py-3.5 font-bold text-ink hover:bg-gold-deep disabled:opacity-60">
+        {busy ? <Loader2 className="size-5 animate-spin" /> : <Link2 className="size-5" />} Generar link de invitación
+      </button>
+    </form>
+  );
+}
+
+/** Anular un link de invitación que todavía no se usó. */
+export function CancelStaffInvite({ id }: { id: string }) {
+  const [busy, start] = useTransition();
+  const router = useRouter();
+  return (
+    <button type="button" disabled={busy} onClick={() => start(async () => { await cancelStaffInviteAction(id); router.refresh(); })}
+      className="inline-flex items-center gap-2 rounded-xl border border-amber-300 bg-white px-4 py-2 font-semibold text-amber-900 hover:bg-amber-100 disabled:opacity-60">
+      {busy ? <Loader2 className="size-4 animate-spin" /> : <X className="size-4" />} Anular
+    </button>
+  );
+}
+
+/** Quitar a un empleado (con confirmación). */
+export function RemoveStaff({ id, name }: { id: string; name: string }) {
+  const [confirming, setConfirming] = useState(false);
+  const [state, setState] = useState<AccountState>(undefined);
+  const [busy, start] = useTransition();
+  const router = useRouter();
+  if (state?.error) return <ErrorBox text={state.error} />;
+  if (!confirming) {
+    return (
+      <button type="button" onClick={() => setConfirming(true)} className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2 font-semibold text-red-700 hover:bg-red-50">
+        <Trash2 className="size-4" /> Quitar
+      </button>
+    );
+  }
+  return (
+    <div className="w-full rounded-xl border-2 border-red-200 bg-red-50 p-4">
+      <p className="font-bold text-red-900">¿Quitar a {name}?</p>
+      <p className="mt-1 text-red-900">Deja de poder entrar al panel en este mismo momento. Si después querés que vuelva, le mandás un link nuevo.</p>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button type="button" disabled={busy} onClick={() => start(async () => { const r = await removeStaffAction(id); setState(r); setConfirming(false); router.refresh(); })}
+          className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-5 py-3 font-bold text-white hover:bg-red-700 disabled:opacity-60">
+          {busy ? <Loader2 className="size-5 animate-spin" /> : <Trash2 className="size-5" />} Sí, quitar
+        </button>
+        <button type="button" onClick={() => setConfirming(false)} className="rounded-xl border border-gray-300 bg-white px-5 py-3 font-semibold text-gray-700">Cancelar</button>
+      </div>
+    </div>
+  );
 }

@@ -350,3 +350,9 @@ create table if not exists no_show_customers (
   updated_at       timestamptz not null default now()
 );
 alter table no_show_customers enable row level security;
+
+-- Varios usuarios en el panel: dueño + empleados invitados con link
+-- (lo mismo se aplica solo al abrir el panel: ver src/lib/auth-schema.ts)
+alter table admin_users add column if not exists role text not null default 'owner';   -- 'owner' o 'staff'
+alter table admin_invites add column if not exists kind text not null default 'owner';  -- 'owner' o 'staff'
+alter table admin_invites add column if not exists label text;                          -- nombre de la persona invitada

@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
 
   if (st.modo === 'activar') {
     const r = await activateOwner(st.invite, { username: profile.email, display_name: profile.name, google_email: profile.email });
-    if (!r.ok) return go(errorPath, r.error);
+    if (!r.ok) return go(r.error.startsWith('Esa cuenta de Google') ? '/admin/login' : errorPath, r.error);
     return go('/admin/cuenta?bienvenida=1');
   }
   if (st.modo === 'vincular') {
