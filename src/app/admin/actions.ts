@@ -220,7 +220,7 @@ export async function saveProductAction(_: FormState, fd: FormData): Promise<For
         if (variants.length) await syncVariants(tx, id, variants, user.username);
         else await tx`delete from product_variants where product_id = ${id}`;
         if (!variants.length && stock != null && stock !== cur.stock_qty) {
-          await tx`update products set stock_qty = ${stock} where id = ${id}`;
+          await tx`update products set stock_qty = ${stock}, track_stock = true where id = ${id}`;
           await tx`insert into stock_movements ${tx({ product_id: id, kind: 'ajuste', qty: stock - cur.stock_qty, note: 'Corrección desde la ficha del producto', created_by: user.username })}`;
         }
       });

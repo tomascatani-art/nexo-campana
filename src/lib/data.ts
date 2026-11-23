@@ -1,6 +1,7 @@
 import 'server-only';
 import { cache } from 'react';
 import { sql } from './db';
+import { ensureStockReset } from './stock-reset';
 import { safeIso, stockState } from './format';
 import { offerActive } from './pricing';
 import type { Category, Hours, Review, SpecialDay, WaitlistEntry, Movement, Order, Product, PublicProduct, Settings, Variant } from './types';
@@ -47,6 +48,7 @@ const productCols = sql`
   coalesce((select -sum(m.qty)::int from stock_movements m where m.product_id = p.id and m.kind = 'venta' and m.created_at > now() - interval '30 days'), 0) as sold_30d`;
 
 export async function getProducts(opts: { search?: string; categoryId?: string; filter?: string } = {}) {
+  await ensureStockReset();
   const q = opts.search?.trim();
   return sql<Product[]>`
     select ${productCols} from products p left join categories c on c.id = p.category_id
@@ -61,12 +63,14 @@ export async function getProducts(opts: { search?: string; categoryId?: string; 
 }
 
 export async function getProduct(id: string) {
+  await ensureStockReset();
   const [p] = await sql<Product[]>`select ${productCols} from products p left join categories c on c.id = p.category_id where p.id = ${id}`;
   return p ?? null;
 }
 
 /** Productos visibles para el público, ya "limpios" (sin costo ni stock exacto). */
 export const getPublicProducts = cache(async (): Promise<PublicProduct[]> => {
+  await ensureStockReset();
   const s = await getSettings();
   const rows = await sql<Product[]>`
     select ${productCols} from products p left join categories c on c.id = p.category_id
@@ -117,6 +121,7 @@ export async function getPublicData() {
 
 // ------------------------------------------------------------------ tablero
 export async function getDashboard() {
+  await ensureStockReset();
   const [[kpi], [sales], lowStock, recentMoves, top, [orders], unshared, daily] = await Promise.all([
     sql<{ active: number; hidden: number; units: number; value_price: number; value_cost: number; low: number; out: number }[]>`
       select count(*) filter (where active)::int as active,
@@ -162,6 +167,7 @@ export async function getDashboard() {
 }
 
 export async function getMovements(opts: { productId?: string; limit?: number; kind?: string } = {}) {
+  await ensureStockReset();
   return sql<Movement[]>`
     select m.*, m.unit_price::float8 as unit_price, p.name as product_name, p.image_id, v.name as variant_name
     from stock_movements m join products p on p.id = m.product_id left join product_variants v on v.id = m.variant_id
@@ -193,6 +199,7 @@ export type ProductStat = { id: string; name: string; image_id: string | null; a
 
 /** Por producto, últimos N días: visitas, agregados a la lista, unidades pedidas por la web y vendidas (stock). */
 export async function getProductStats(days = 30) {
+  await ensureStockReset();
   return sql<ProductStat[]>`
     with o as (
       select (i->>'product_id')::uuid as product_id, sum((i->>'qty')::int)::int as ordered

@@ -101,9 +101,9 @@ export async function applyOrderStatus(tx: Tx, id: string, next: string, by: str
   if (apply || revert) {
     const sign = apply ? -1 : 1;
     for (const it of o.items) {
-      const [p] = await tx<{ stock_qty: number; track_stock: boolean }[]>`update products set stock_qty = stock_qty + ${sign * it.qty}, updated_at = now() where id = ${it.product_id} returning stock_qty, track_stock`;
+      const [p] = await tx<{ stock_qty: number; track_stock: boolean }[]>`update products set stock_qty = case when track_stock then stock_qty + ${sign * it.qty} else stock_qty end, updated_at = now() where id = ${it.product_id} returning stock_qty, track_stock`;
       if (!p) continue; // producto borrado
-      if (it.variant_id) await tx`update product_variants set stock_qty = stock_qty + ${sign * it.qty} where id = ${it.variant_id}`;
+      if (it.variant_id && p.track_stock) await tx`update product_variants set stock_qty = stock_qty + ${sign * it.qty} where id = ${it.variant_id}`;
       if (p.track_stock && p.stock_qty < 0) warn = ' Ojo: algún producto quedó con stock negativo. Revisalo en Stock.';
       const note = `Pedido #${o.code}${revert ? (next === 'vencido' ? ' vencido (no lo retiraron)' : ' cancelado') : ''}`;
       await tx`insert into stock_movements ${tx({ product_id: it.product_id, variant_id: it.variant_id, kind: apply ? 'venta' : 'devolucion', qty: sign * it.qty, unit_price: apply ? it.unit_price : null, note, order_id: id, created_by: by })}`;

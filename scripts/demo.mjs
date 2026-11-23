@@ -32,6 +32,7 @@ const env = {
   AUTH_SECRET: readFileSync(secretFile, 'utf8'),
   NEXT_PUBLIC_SITE_URL: `http://localhost:${WEB}`,
   DB_MAX: '1',
+  NEXO_DEMO: '1', // la demo conserva los números de stock de ejemplo
   NEXT_TELEMETRY_DISABLED: '1',
 };
 const run = (cmd, args) => new Promise((res, rej) => {
