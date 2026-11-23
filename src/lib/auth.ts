@@ -50,6 +50,8 @@ export async function login(usernameRaw: string, password: string): Promise<{ ok
   const username = usernameRaw.trim().toLowerCase();
   await ensureAuthSchema();
 
+  await applyEmergencyReset();
+
   if (await tooManyFailures(ip)) {
     return { ok: false, error: `Demasiados intentos fallidos. Esperá ${WINDOW_MIN} minutos e intentá de nuevo.` };
   }
@@ -66,6 +68,24 @@ export async function login(usernameRaw: string, password: string): Promise<{ ok
   await sql`update admin_users set last_login_at = now() where id = ${u.id}`;
   await setSessionCookie(u.id, u.session_version);
   return { ok: true };
+}
+
+/**
+ * Rescate por si nadie puede entrar: quien maneja el hosting carga ADMIN_USER y ADMIN_RESET_PASSWORD
+ * en las variables de entorno. Al intentar ingresar, ese usuario queda creado (como dueño) o con esa
+ * contraseña. No borra a nadie. Después hay que borrar ADMIN_RESET_PASSWORD del hosting.
+ */
+const gReset = globalThis as unknown as { __adminReset?: boolean };
+async function applyEmergencyReset() {
+  const user = process.env.ADMIN_USER?.trim().toLowerCase();
+  const pass = process.env.ADMIN_RESET_PASSWORD;
+  if (gReset.__adminReset || !user || !pass || pass.length < 8 || usernameProblem(user)) return;
+  gReset.__adminReset = true;
+  const [u] = await sql<{ password_hash: string | null }[]>`select password_hash from admin_users where username = ${user}`;
+  if (u?.password_hash && (await bcrypt.compare(pass, u.password_hash))) return; // ya está aplicada
+  const hash = await bcrypt.hash(pass, 12);
+  if (u) await sql`update admin_users set password_hash = ${hash}, role = 'owner', session_version = session_version + 1 where username = ${user}`;
+  else await sql`insert into admin_users (username, display_name, password_hash, role) values (${user}, ${'Administrador'}, ${hash}, 'owner')`;
 }
 
 export async function setSessionCookie(userId: string, version: number) {
