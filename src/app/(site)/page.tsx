@@ -331,7 +331,7 @@ export default async function Home() {
             )}
           </div>
           <div className="min-h-80 overflow-hidden rounded-2xl border border-white/10 bg-coal">
-            <iframe title={`Mapa: ${fullAddress}`} src={`https://www.google.com/maps?q=${mapsQuery}&output=embed`} className="size-full min-h-80 grayscale invert-[.9] hue-rotate-180" loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
+            <iframe title={`Mapa: ${fullAddress}`} src={`https://www.google.com/maps?q=${mapsQuery}&output=embed`} className="size-full min-h-80" loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
           </div>
         </div>
       </section>
