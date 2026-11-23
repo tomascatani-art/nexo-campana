@@ -6,7 +6,7 @@ import { callbackPath, getGoogleConfig, requestOrigin } from '@/lib/google';
 import { Card, Field, PageHeader } from '@/components/admin/fields';
 import { AdminForm, Flash, SubmitButton } from '@/components/admin/ui';
 import { GoogleButton, InviteTool, RecoveryCodeBox, RegenerateRecovery, SecureBadge, UnlinkGoogle } from '@/components/admin/AccountTools';
-import { changePasswordAction } from '../../actions';
+import { changePasswordAction, changeProfileAction } from '../../actions';
 import { dismissRecoveryAction, saveGoogleConfigAction } from '../../account-actions';
 
 export const metadata = { title: 'Mi cuenta' };
@@ -45,6 +45,26 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
             </form>
           </Card>
         )}
+
+        <AdminForm action={changeProfileAction}>
+          <Card title="Tu usuario y tu nombre" description="Podés cambiar el usuario con el que entrás. La contraseña no cambia.">
+            <Field label="Usuario para entrar" name="username" defaultValue={user.username} required help="Sin espacios ni tildes (podés usar . _ -)." />
+            <Field label="Tu nombre" name="display_name" defaultValue={user.display_name} />
+            <SubmitButton>Guardar usuario</SubmitButton>
+          </Card>
+        </AdminForm>
+
+        <AdminForm action={changePasswordAction} resetOnSuccess>
+          <Card
+            title={user.has_password ? 'Cambiar contraseña' : 'Crear una contraseña (opcional)'}
+            description={user.has_password ? 'Mínimo 8 caracteres, con letras y números. Al cambiarla se cierra la sesión en los otros dispositivos.' : 'Hoy entrás solo con Google. Si querés, creá también una contraseña de respaldo.'}
+          >
+            {user.has_password && <Field label="Contraseña actual" name="current" type="password" required />}
+            <Field label="Nueva contraseña" name="next" type="password" required />
+            <Field label="Repetir nueva contraseña" name="confirm" type="password" required />
+            <SubmitButton>{user.has_password ? 'Cambiar contraseña' : 'Crear contraseña'}</SubmitButton>
+          </Card>
+        </AdminForm>
 
         <Card title="Quién puede entrar al panel">
           {owner ? (
@@ -99,17 +119,6 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
           {!owner && !google && <p className="text-gray-600">El dueño todavía no lo activó.</p>}
         </Card>
 
-        <AdminForm action={changePasswordAction} resetOnSuccess>
-          <Card
-            title={user.has_password ? 'Cambiar contraseña' : 'Crear una contraseña (opcional)'}
-            description={user.has_password ? 'Mínimo 8 caracteres, con letras y números. Al cambiarla se cierra la sesión en los otros dispositivos.' : 'Hoy entrás solo con Google. Si querés, creá también una contraseña de respaldo.'}
-          >
-            {user.has_password && <Field label="Contraseña actual" name="current" type="password" required />}
-            <Field label="Nueva contraseña" name="next" type="password" required />
-            <Field label="Repetir nueva contraseña" name="confirm" type="password" required />
-            <SubmitButton>{user.has_password ? 'Cambiar contraseña' : 'Crear contraseña'}</SubmitButton>
-          </Card>
-        </AdminForm>
 
         <Card
           title="Código de recuperación"

@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import type postgres from 'postgres';
 import { sql } from '@/lib/db';
-import { changePassword, login, logout, passwordProblem, requireAdmin } from '@/lib/auth';
+import { changePassword, login, logout, passwordProblem, requireAdmin, usernameProblem } from '@/lib/auth';
 import { cleanupOrphanImages, storeImage } from '@/lib/images';
 import { slugify } from '@/lib/format';
 import { waIntl } from '@/lib/messages';
@@ -89,6 +89,21 @@ export async function changePasswordAction(_: FormState, fd: FormData): Promise<
   const r = await changePassword(user, current, next);
   if (!r.ok) return { error: r.error, field: 'current' };
   return { ok: true, message: user.has_password ? 'Contraseña actualizada. Se cerró la sesión en los demás dispositivos.' : 'Contraseña creada. Ahora también podés entrar con usuario y contraseña.' };
+}
+
+export async function changeProfileAction(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requireAdmin();
+  const username = String(fd.get('username') ?? '').trim().toLowerCase();
+  const display = String(fd.get('display_name') ?? '').trim().slice(0, 60) || null;
+  const problem = usernameProblem(username);
+  if (problem) return { error: problem, field: 'username' };
+  if (username !== user.username) {
+    const [taken] = await sql`select 1 from admin_users where username = ${username} and id <> ${user.id}`;
+    if (taken) return { error: 'Ese usuario ya lo usa otra persona. Elegí otro.', field: 'username' };
+  }
+  await sql`update admin_users set username = ${username}, display_name = ${display} where id = ${user.id}`;
+  revalidatePath('/admin', 'layout');
+  return { ok: true, message: username !== user.username ? `Listo. Desde ahora entrás con el usuario "${username}".` : 'Datos guardados.' };
 }
 
 // ------------------------------------------------------------------ imágenes
