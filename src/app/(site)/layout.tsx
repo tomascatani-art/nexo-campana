@@ -8,6 +8,7 @@ import { SHIPPING_SOON_DEFAULT } from '@/lib/types';
 import { FacebookIcon, InstagramIcon, TikTokIcon, WhatsAppIcon } from '@/components/icons';
 import { Header } from '@/components/site/Header';
 import { Logo } from '@/components/site/Logo';
+import { SecretTap } from '@/components/site/SecretTap';
 import { ListProvider } from '@/components/site/ListProvider';
 import { CartDrawer } from '@/components/site/CartDrawer';
 import { FloatingBar } from '@/components/site/FloatingBar';
@@ -30,7 +31,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
         <footer className="border-t border-white/10 bg-coal pb-28 pt-14 sm:pb-14">
           <div className="mx-auto grid max-w-7xl gap-10 px-4 sm:grid-cols-2 sm:px-6 lg:grid-cols-4">
             <div className="lg:col-span-2">
-              <Logo name={s.business_name} kind={s.business_kind} logoId={s.logo_image_id} />
+              <SecretTap><Logo name={s.business_name} kind={s.business_kind} logoId={s.logo_image_id} /></SecretTap>
               <p className="mt-4 max-w-sm text-mist">{s.slogan}{s.tagline ? ` · ${s.tagline}` : ''}</p>
               <div className="mt-5 flex gap-2">
                 {s.instagram_url && <a href={s.instagram_url} target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="rounded-full border border-white/15 p-2.5 hover:border-gold hover:text-gold"><InstagramIcon className="size-5" /></a>}
@@ -65,6 +66,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
               <p>© {year} {s.business_name}. Todos los derechos reservados.</p>
               {s.admission_notice && <p className="mt-1 text-xs" data-testid="admission-notice"><Link href="/#politicas" className="hover:text-white">{s.admission_notice}</Link></p>}
             </div>
+            <Link href="/admin" rel="nofollow" data-testid="admin-access" className="self-start py-2 text-[11px] text-white/25 transition-colors hover:text-gold sm:self-end">Iniciar sesión administrativa</Link>
           </div>
         </footer>
       </div>
